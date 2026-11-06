@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  body { @apply bg-ink-50 text-ink-900 font-sans; }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg border border-ink-200 shadow-sm;
+  }
+  .table-header {
+    @apply text-ink-500 text-xs font-medium uppercase tracking-wide text-right;
+  }
+  .cell-short {
+    @apply bg-amber-50 text-amber-700 font-medium;
+  }
+  .cell-overdue {
+    @apply bg-red-50 text-red-700 font-medium;
+  }
+  .cell-freight {
+    @apply bg-violet-50 text-violet-700 font-medium;
+  }
+  .cell-settled {
+    @apply bg-emerald-50 text-emerald-700 font-medium;
+  }
+}
+
+@layer utilities {
+  .tabular { font-variant-numeric: tabular-nums; }
+}

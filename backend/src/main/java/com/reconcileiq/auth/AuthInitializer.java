@@ -1,0 +1,42 @@
+package com.reconcileiq.auth;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+@Component
+public class AuthInitializer implements CommandLineRunner {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final String demoExecPassword;
+    private final String demoFounderPassword;
+
+    public AuthInitializer(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            @Value("${app.demo.exec-password}") String demoExecPassword,
+            @Value("${app.demo.founder-password}") String demoFounderPassword) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.demoExecPassword = demoExecPassword;
+        this.demoFounderPassword = demoFounderPassword;
+    }
+
+    @Override
+    public void run(String... args) {
+        if (userRepository.count() == 0) {
+            createDemoUser("exec@demo.com", demoExecPassword, "ROLE_FINANCE_EXECUTIVE", "Finance Executive Demo");
+            createDemoUser("founder@demo.com", demoFounderPassword, "ROLE_COFOUNDER", "Finance Co-founder Demo");
+        }
+    }
+
+    private void createDemoUser(String email, String rawPassword, String role, String fullName) {
+        String encoded = passwordEncoder.encode(rawPassword);
+        User user = new User(email, encoded, role, fullName);
+        userRepository.save(user);
+    }
+}
