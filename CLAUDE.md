@@ -42,6 +42,11 @@ ReconcileIQ is a modern reconciliation product designed for D2C brands (like Com
 └── docker-compose.yml
 ```
 
+## Communication Rule
+All communication with the user and all documentation must be in **English**.
+No other language is permitted in user-facing text, commit messages, docs, or
+comments.
+
 ## Build, Run, & Test Commands
 - **Backend**:
   - Build: `cd backend && mvn clean package -DskipTests`
