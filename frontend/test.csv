@@ -1,0 +1,2 @@
+order_id,channel,order_date,order_value,payment_type,delivery_status
+ORD-999,Website,2026-11-06,1000,COD,Delivered

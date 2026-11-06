@@ -19,8 +19,17 @@ import java.util.function.Consumer;
 public class ExcelParser {
 
     public ParseResult parse(MultipartFile file, int previewLimit, Consumer<Map<String, String>> rowConsumer) throws Exception {
+        return parse(file, previewLimit, rowConsumer, true);
+    }
+
+    public void parseFull(MultipartFile file, Consumer<Map<String, String>> rowConsumer) throws Exception {
+        parse(file, 0, rowConsumer, false);
+    }
+
+    private ParseResult parse(MultipartFile file, int previewLimit, Consumer<Map<String, String>> rowConsumer, boolean trackPreview) throws Exception {
         List<String> headers = new ArrayList<>();
         List<Map<String, String>> previewRows = new ArrayList<>();
+        List<RejectedRow> rejectedRows = new ArrayList<>();
         int rowCount = 0;
         int validCount = 0;
         int errorCount = 0;
@@ -30,13 +39,13 @@ public class ExcelParser {
 
             Sheet sheet = wb.getFirstSheet();
             if (sheet == null) {
-                return new ParseResult(headers, previewRows, 0, 0, 0);
+                return new ParseResult(headers, previewRows, 0, 0, 0, rejectedRows);
             }
 
             // Read header row
             Iterator<Row> rowIterator = sheet.openStream().iterator();
             if (!rowIterator.hasNext()) {
-                return new ParseResult(headers, previewRows, 0, 0, 0);
+                return new ParseResult(headers, previewRows, 0, 0, 0, rejectedRows);
             }
 
             Row headerRow = rowIterator.next();
@@ -67,19 +76,20 @@ public class ExcelParser {
 
                 if (!hasData) {
                     errorCount++;
+                    rejectedRows.add(new RejectedRow(null, rowCount, rowMap.toString(), "Empty row"));
                     continue;
                 }
 
                 validCount++;
                 rowConsumer.accept(rowMap);
 
-                if (previewRows.size() < previewLimit) {
+                if (trackPreview && previewRows.size() < previewLimit) {
                     previewRows.add(rowMap);
                 }
             }
         }
 
-        return new ParseResult(headers, previewRows, rowCount, validCount, errorCount);
+        return new ParseResult(headers, previewRows, rowCount, validCount, errorCount, rejectedRows);
     }
 
     public static class ParseResult {
@@ -88,13 +98,19 @@ public class ExcelParser {
         public final int totalRows;
         public final int validRows;
         public final int errorRows;
+        public final List<RejectedRow> rejectedRows;
 
         public ParseResult(List<String> headers, List<Map<String, String>> previewRows, int totalRows, int validRows, int errorRows) {
+            this(headers, previewRows, totalRows, validRows, errorRows, null);
+        }
+
+        public ParseResult(List<String> headers, List<Map<String, String>> previewRows, int totalRows, int validRows, int errorRows, List<RejectedRow> rejectedRows) {
             this.headers = headers;
             this.previewRows = previewRows;
             this.totalRows = totalRows;
             this.validRows = validRows;
             this.errorRows = errorRows;
+            this.rejectedRows = rejectedRows;
         }
     }
 }

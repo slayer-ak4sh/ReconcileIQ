@@ -10,47 +10,53 @@ import java.util.stream.Collectors;
 public class RuleBasedSuggester implements MappingSuggester {
 
     // Synonym dictionary: canonical field -> list of common partner header variations
-    private static final Map<String, List<String>> SYNONYMS = Map.ofEntries(
-        Map.entry("orderId", List.of("order_id", "orderid", "orderno", "order_no", "order number", "id", "ref", "reference", "transaction_id")),
-        Map.entry("channelCode", List.of("channel", "channel_code", "source", "platform", "marketplace", "site")),
-        Map.entry("orderDate", List.of("order_date", "orderdate", "date", "created_at", "created", "purchase_date", "order_time")),
-        Map.entry("orderValue", List.of("order_value", "ordervalue", "amount", "total", "order_total", "value", "grand_total", "price")),
-        Map.entry("paymentType", List.of("payment_type", "paymenttype", "payment_method", "pay_type", "method", "paymode")),
-        Map.entry("deliveryStatus", List.of("delivery_status", "deliverystatus", "status", "order_status", "state", "shipment_status")),
-        Map.entry("customerName", List.of("customer_name", "customername", "name", "buyer_name", "buyer", "customer")),
-        Map.entry("customerPhone", List.of("customer_phone", "customerphone", "phone", "mobile", "contact", "phone_number", "buyer_phone")),
-        Map.entry("customerAddress", List.of("customer_address", "customeraddress", "address", "shipping_address", "bill_to", "buyer_address")),
+    // Order matters - more specific terms first
+    private static final Map<String, List<String>> SYNONYMS = new LinkedHashMap<>() {{
+        // Orders
+        put("orderId", List.of("order_id", "orderid", "orderno", "order_no", "order number", "id", "ref", "reference", "transaction_id"));
+        put("channelCode", List.of("channel", "channel_code", "source", "platform", "marketplace", "site"));
+        put("orderDate", List.of("order_date", "orderdate", "date", "created_at", "created", "purchase_date", "order_time"));
+        put("orderValue", List.of("order_value", "ordervalue", "amount", "total", "order_total", "value", "grand_total", "price"));
+        put("paymentType", List.of("payment_type", "paymenttype", "payment_method", "pay_type", "method", "paymode"));
+        put("deliveryStatus", List.of("delivery_status", "deliverystatus", "status", "order_status", "state", "shipment_status"));
+        put("customerName", List.of("customer_name", "customername", "name", "buyer_name", "buyer", "customer"));
+        put("customerPhone", List.of("customer_phone", "customerphone", "phone", "mobile", "contact", "phone_number", "buyer_phone"));
+        put("customerAddress", List.of("customer_address", "customeraddress", "address", "shipping_address", "bill_to", "buyer_address"));
 
-        Map.entry("referenceNo", List.of("reference_no", "referenceno", "ref_no", "refno", "settlement_ref", "txn_id", "transaction_id", "utr")),
-        Map.entry("settlementDate", List.of("settlement_date", "settlementdate", "settled_date", "settled", "credit_date", "payout_date")),
-        Map.entry("grossAmount", List.of("gross_amount", "grossamount", "gross", "total_amount", "invoice_amount", "bill_amount")),
-        Map.entry("commission", List.of("commission", "comm", "fee", "platform_fee", "marketplace_fee", "commission_amount")),
-        Map.entry("fixedFee", List.of("fixed_fee", "fixedfee", "fixed_charge", "per_order_fee", "processing_fee")),
-        Map.entry("collectionFee", List.of("collection_fee", "collectionfee", "collection_charge", "payment_gateway_fee", "pg_fee", "gateway_fee")),
-        Map.entry("tcsAmount", List.of("tcs_amount", "tcsamount", "tcs", "tax_collected", "gst_tcs")),
-        Map.entry("tdsAmount", List.of("tds_amount", "tdsamount", "tds", "tax_deducted", "income_tax_tds")),
-        Map.entry("netAmount", List.of("net_amount", "netamount", "net", "settled_amount", "payout", "received", "credit_amount")),
+        // Settlements - specific to settlements
+        put("referenceNo", List.of("reference_no", "referenceno", "ref_no", "refno", "settlement_ref", "txn_id", "transaction_id"));
+        put("settlementDate", List.of("settlement_date", "settlementdate", "settled_date", "settled", "credit_date", "payout_date"));
+        put("grossAmount", List.of("gross_amount", "grossamount", "gross", "total_amount", "invoice_amount", "bill_amount"));
+        put("commission", List.of("commission", "comm", "fee", "platform_fee", "marketplace_fee", "commission_amount"));
+        put("fixedFee", List.of("fixed_fee", "fixedfee", "fixed_charge", "per_order_fee", "processing_fee"));
+        put("collectionFee", List.of("collection_fee", "collectionfee", "collection_charge", "payment_gateway_fee", "pg_fee", "gateway_fee"));
+        put("tcsAmount", List.of("tcs_amount", "tcsamount", "tcs", "tax_collected", "gst_tcs"));
+        put("tdsAmount", List.of("tds_amount", "tdsamount", "tds", "tax_deducted", "income_tax_tds"));
+        put("netAmount", List.of("net_amount", "netamount", "net", "settled_amount", "payout", "credit_amount"));
 
-        Map.entry("courierCode", List.of("courier_code", "couriercode", "courier", "carrier", "shipping_partner", "logistics")),
-        Map.entry("utrNo", List.of("utr_no", "utrno", "utr", "transaction_id", "txn_id", "ref_no", "reference_no", "bank_ref")),
-        Map.entry("remittanceDate", List.of("remittance_date", "remittancedate", "credited_date", "credit_date", "settlement_date", "date")),
-        Map.entry("codCollected", List.of("cod_collected", "codcollected", "cod_amount", "cash_collected", "collected_amount")),
-        Map.entry("feeDeducted", List.of("fee_deducted", "feededucted", "deduction", "charges", "courier_fee", "fee")),
-        Map.entry("netRemitted", List.of("net_remitted", "netremitted", "remitted", "net_amount", "received", "payout")),
+        // COD Remittances
+        put("courierCode", List.of("courier_code", "couriercode", "courier", "carrier", "shipping_partner", "logistics"));
+        put("utrNo", List.of("utr_no", "utrno", "utr", "bank_ref", "transaction_ref"));
+        put("remittanceDate", List.of("remittance_date", "remittancedate", "credited_date", "credit_date", "settlement_date", "date"));
+        put("codCollected", List.of("cod_collected", "codcollected", "cod_amount", "cash_collected", "collected_amount"));
+        put("feeDeducted", List.of("fee_deducted", "feededucted", "deduction", "charges", "courier_fee", "fee"));
+        put("netRemitted", List.of("net_remitted", "netremitted", "remitted", "received_amount", "payout_amount"));
 
-        Map.entry("invoiceNo", List.of("invoice_no", "invoiceno", "invoice", "bill_no", "billno", "document_no", "freight_bill")),
-        Map.entry("invoiceDate", List.of("invoice_date", "invoicedate", "bill_date", "billing_date", "date")),
-        Map.entry("billedWeight", List.of("billed_weight", "billedweight", "weight", "chargeable_weight", "bill_weight", "kg")),
-        Map.entry("freightCharge", List.of("freight_charge", "freightcharge", "freight", "shipping_charge", "delivery_charge", "transport")),
-        Map.entry("codFee", List.of("cod_fee", "codfee", "cod_charge", "collection_fee", "cod_handling")),
-        Map.entry("returnFee", List.of("return_fee", "returnfee", "return_charge", "rto_fee", "reverse_logistics")),
-        Map.entry("totalFreight", List.of("total_freight", "totalfreight", "total", "amount", "grand_total", "freight_total")),
+        // Freight Invoices
+        put("invoiceNo", List.of("invoice_no", "invoiceno", "invoice", "bill_no", "billno", "document_no", "freight_bill"));
+        put("invoiceDate", List.of("invoice_date", "invoicedate", "bill_date", "billing_date", "date"));
+        put("billedWeight", List.of("billed_weight", "billedweight", "weight", "chargeable_weight", "bill_weight", "kg"));
+        put("freightCharge", List.of("freight_charge", "freightcharge", "freight", "shipping_charge", "delivery_charge", "transport"));
+        put("codFee", List.of("cod_fee", "codfee", "cod_charge", "cod_handling"));
+        put("returnFee", List.of("return_fee", "returnfee", "return_charge", "rto_fee", "reverse_logistics"));
+        put("totalFreight", List.of("total_freight", "totalfreight", "total", "amount", "grand_total", "freight_total"));
 
-        Map.entry("waybillNo", List.of("waybill_no", "waybillno", "waybill", "awb", "awb_no", "tracking_no", "tracking")),
-        Map.entry("scanDate", List.of("scan_date", "scandate", "received_date", "delivery_date", "warehouse_date", "date")),
-        Map.entry("warehouseLocation", List.of("warehouse_location", "warehouselocation", "warehouse", "location", "branch", "godown")),
-        Map.entry("conditionStatus", List.of("condition_status", "conditionstatus", "condition", "status", "state", "quality"))
-    );
+        // Warehouse Scans
+        put("waybillNo", List.of("waybill_no", "waybillno", "waybill", "awb", "awb_no", "tracking_no", "tracking"));
+        put("scanDate", List.of("scan_date", "scandate", "received_date", "delivery_date", "warehouse_date", "date"));
+        put("warehouseLocation", List.of("warehouse_location", "warehouselocation", "warehouse", "location", "branch", "godown"));
+        put("conditionStatus", List.of("condition_status", "conditionstatus", "condition", "status", "state", "quality"));
+    }};
 
     @Override
     public List<Suggestion> suggest(List<String> headers, List<Map<String, String>> sampleRows) {
@@ -143,7 +149,7 @@ public class RuleBasedSuggester implements MappingSuggester {
 
     private String findByType(String type) {
         return switch (type) {
-            case "numeric" -> "orderValue"; // default numeric field
+            case "numeric" -> "grossAmount"; // default numeric field
             case "date" -> "orderDate";
             case "email" -> "customerName"; // emails usually in customer context
             case "phone" -> "customerPhone";

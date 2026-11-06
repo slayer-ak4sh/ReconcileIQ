@@ -39,3 +39,9 @@ surefire-reports/
 
 # Docker
 docker-compose.override.yml
+# build output
+target/
+node_modules/
+dist/
+.env
+*.log

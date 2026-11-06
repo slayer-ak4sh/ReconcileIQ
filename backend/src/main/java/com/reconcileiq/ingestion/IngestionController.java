@@ -1,5 +1,6 @@
 package com.reconcileiq.ingestion;
 
+import com.reconcileiq.mapping.MappingService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -14,11 +15,17 @@ public class IngestionController {
 
     private final IngestionService ingestionService;
     private final SourceRepository sourceRepository;
+    private final MappingService mappingService;
+    private final RejectedRowRepository rejectedRowRepository;
 
     public IngestionController(IngestionService ingestionService,
-                               SourceRepository sourceRepository) {
+                               SourceRepository sourceRepository,
+                               MappingService mappingService,
+                               RejectedRowRepository rejectedRowRepository) {
         this.ingestionService = ingestionService;
         this.sourceRepository = sourceRepository;
+        this.mappingService = mappingService;
+        this.rejectedRowRepository = rejectedRowRepository;
     }
 
     @PostMapping(consumes = "multipart/form-data")
@@ -37,6 +44,24 @@ public class IngestionController {
                     "errorRows", batch.getErrorCount(),
                     "headers", batch.getHeaders(),
                     "previewRows", batch.getPreviewRows()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/{batchId}/ingest", consumes = "multipart/form-data")
+    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    public ResponseEntity<?> ingestFullFile(
+            @PathVariable Long batchId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("sourceId") Long sourceId,
+            @RequestParam("fileType") String fileType) {
+        try {
+            IngestionService.IngestResult result = ingestionService.ingestFullFile(file, sourceId, fileType);
+            return ResponseEntity.ok(Map.of(
+                    "inserted", result.inserted,
+                    "errors", result.errors
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -71,5 +96,11 @@ public class IngestionController {
         return ingestionService.getBatchRepository().findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/rejected")
+    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    public ResponseEntity<List<RejectedRow>> getRejectedRows(@PathVariable Long id) {
+        return ResponseEntity.ok(rejectedRowRepository.findByBatchId(id));
     }
 }

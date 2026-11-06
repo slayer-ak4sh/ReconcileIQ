@@ -18,8 +18,17 @@ import java.util.function.Consumer;
 public class CsvParser {
 
     public ParseResult parse(MultipartFile file, int previewLimit, Consumer<Map<String, String>> rowConsumer) throws Exception {
+        return parse(file, previewLimit, rowConsumer, true);
+    }
+
+    public void parseFull(MultipartFile file, Consumer<Map<String, String>> rowConsumer) throws Exception {
+        parse(file, 0, rowConsumer, false);
+    }
+
+    private ParseResult parse(MultipartFile file, int previewLimit, Consumer<Map<String, String>> rowConsumer, boolean trackPreview) throws Exception {
         List<String> headers = new ArrayList<>();
         List<Map<String, String>> previewRows = new ArrayList<>();
+        List<RejectedRow> rejectedRows = new ArrayList<>();
         int rowCount = 0;
         int validCount = 0;
         int errorCount = 0;
@@ -35,19 +44,20 @@ public class CsvParser {
 
                 if (rowMap.values().stream().allMatch(v -> v == null || v.trim().isEmpty())) {
                     errorCount++;
+                    rejectedRows.add(new RejectedRow(null, rowCount, rowMap.toString(), "Empty row"));
                     continue;
                 }
 
                 validCount++;
                 rowConsumer.accept(rowMap);
 
-                if (previewRows.size() < previewLimit) {
+                if (trackPreview && previewRows.size() < previewLimit) {
                     previewRows.add(rowMap);
                 }
             }
         }
 
-        return new ParseResult(headers, previewRows, rowCount, validCount, errorCount);
+        return new ParseResult(headers, previewRows, rowCount, validCount, errorCount, rejectedRows);
     }
 
     public static class ParseResult {
@@ -56,13 +66,19 @@ public class CsvParser {
         public final int totalRows;
         public final int validRows;
         public final int errorRows;
+        public final List<RejectedRow> rejectedRows;
 
         public ParseResult(List<String> headers, List<Map<String, String>> previewRows, int totalRows, int validRows, int errorRows) {
+            this(headers, previewRows, totalRows, validRows, errorRows, null);
+        }
+
+        public ParseResult(List<String> headers, List<Map<String, String>> previewRows, int totalRows, int validRows, int errorRows, List<RejectedRow> rejectedRows) {
             this.headers = headers;
             this.previewRows = previewRows;
             this.totalRows = totalRows;
             this.validRows = validRows;
             this.errorRows = errorRows;
+            this.rejectedRows = rejectedRows;
         }
     }
 }

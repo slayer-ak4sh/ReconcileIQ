@@ -39,7 +39,9 @@ public class Order {
     @Column(nullable = false)
     private java.time.Instant createdAt;
 
-    public Order() {}
+    public Order() {
+        this.createdAt = java.time.Instant.now();
+    }
 
     public Order(String orderId, String channelCode, java.time.LocalDate orderDate,
                  java.math.BigDecimal orderValue, String paymentType, String deliveryStatus,

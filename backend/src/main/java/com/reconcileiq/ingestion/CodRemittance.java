@@ -37,7 +37,9 @@ public class CodRemittance {
     @Column(nullable = false)
     private java.time.Instant createdAt;
 
-    public CodRemittance() {}
+    public CodRemittance() {
+        this.createdAt = java.time.Instant.now();
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

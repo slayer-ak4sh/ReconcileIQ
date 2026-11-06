@@ -43,7 +43,9 @@ public class FreightInvoice {
     @Column(nullable = false)
     private java.time.Instant createdAt;
 
-    public FreightInvoice() {}
+    public FreightInvoice() {
+        this.createdAt = java.time.Instant.now();
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
