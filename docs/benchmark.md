@@ -1,77 +1,23 @@
-# Performance Benchmark Report — ReconcileIQ 100k Row Matching
+# Benchmark: ReconcileIQ 100k-Row Processing Performance
 
-**Status:** Baseline draft. Actual numbers will be filled after Phase 3 benchmark run.
-
-## Objective
-Verify that ingestion + parsing + bulk load + set-based matching for 100,000
-order rows (plus related settlement/COD/freight rows) completes in under 60
-seconds on a mid-tier VM.
+## Target
+Under 60 seconds for: parse 100k rows → load into DB → run matching → produce order_reconciliation.
 
 ## Environment
+- Docker Compose: backend (Spring Boot 21 + JdbcTemplate), postgres (16)
+- 100k-row CSV: order_id, channel_code, order_date, order_value, payment_type, delivery_status
+- Rate cards seeded via Flyway V3 (Website: 6%/10/1%, Marketplace 1: 5%/0/2%)
+- Indexes: order_id, channel_code, order_date, reconciliation_status, due_date
 
-| Component | Spec |
-|-----------|------|
-| OS | Ubuntu 22.04 LTS |
-| CPU | 12 vCPU (x86_64) |
-| RAM | 7.4 GB |
-| PostgreSQL | 16.15 (Postgres 16, shared_buffers 256MB, effective_cache_size 2GB) |
-| Java | OpenJDK 21.0.12.1 |
-| Spring Boot | 3.4.0 |
-| Test Data | 100,000 orders with 1.2× settlements, 0.55× COD remittances, 1× freight invoices |
+## Status: NOT YET RUN
+Benchmark has not yet been executed on this codebase. Target: ingest + match under 60 s.
 
-## Methodology
+## Planned Method
+1. Load the 100k set through the REAL ingestion path (CSV upload with saved mappings), not a shortcut.
+2. Use streaming parse and COPY or large JDBC batches.
+3. Measure separately: parse, load (DB write), match, total.
+4. Run 3 times on a fresh database, report each run and the median.
+5. Report total rows per file and combined, machine (CPU, RAM, disk, OS), Java and PostgreSQL versions, key Postgres settings, heap size, peak memory if measurable, and limitations (local laptop, Docker, single user).
+6. If over 60 s, profile with EXPLAIN (ANALYZE, BUFFERS) on the match query, optimise (COPY, bigger batches, indexes before match, ANALYZE, temp tables, unlogged staging), and show before and after numbers.
 
-1. **Seed generation** via `/scripts/SeedGenerator.java`. Deterministic RNG with seed 42.
-   Planted anomalies: 2% short pay, 1.5% unremitted COD, 1% freight slab errors, 0.5%
-   duplicate rows, 0.3% missing order IDs.
-2. **Parse phase**: Apache Commons CSV for CSV files, FastExcel streaming for XLSX,
-   parsing 20-row preview for mapping suggestions.
-3. **Load phase**: JdbcTemplate batch inserts 5,000 rows/batch with prepared statements.
-   No entity save flushes.
-4. **Match phase**: Set-based SQL CTE that joins orders, rate cards, settlements,
-   COD, freight, computes expected amounts with window functions, updates
-   `order_reconciliation` in a single transaction.
-5. **Measurement** includes parse, load, index creation, analyze, and matching.
-   Metrics captured via log timestamps and `System.nanoTime()`.
-
-## Expected Results (Targets)
-
-| Phase | Target |
-|-------|--------|
-| Parse 100k CSV rows | ≤ 8s |
-| Batch load orders + feeds | ≤ 20s |
-| Indexes + ANALYZE | ≤ 5s |
-| Set-based matching | ≤ 15s |
-| **Total** | **≤ 60s** |
-
-## Known Limitations
-
-- Benchmark run on local Docker Postgres, not optimized production instance.
-- First run includes schema migration overhead which is not counted.
-- I/O bound on disk for COPY vs batch inserts; results will vary by storage.
-
-## Next Steps
-
-- Run Phase 3 benchmark with `/scripts/RunBenchmark.sh`.
-- Record actual timings to this document under "Results".
-- If total >60s, profile with pstats/VisualVM and apply set-based matching
-  optimizations (partitioned indexes, materialized rate card lookups).
-
-## Results (to be filled)
-
-**Run date:** ___  
-**Dataset size:** ___ orders / ___ settlement rows / ___ freight rows  
-**Parse:** ___ s  
-**Load:** ___ s  
-**Indexes:** ___ s  
-**Match:** ___ s  
-**Total:** ___ s  
-**Auto-match rate:** ___ %  
-**Memory peak:** ___ MB  
-
-## Notes
-
-- Matching engine uses `INSERT ... SELECT ... FROM ...` with CTEs, avoiding N+1 loops.
-- Mapping suggestions are not benchmarked here (occurs once per partner).
-- File deduplication via SHA-256 pre-check adds negligible overhead (<500ms for
-  100k file).
+If it still misses the target, say so plainly with the numbers.

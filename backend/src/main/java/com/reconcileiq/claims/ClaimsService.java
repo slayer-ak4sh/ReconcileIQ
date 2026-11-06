@@ -2,6 +2,8 @@ package com.reconcileiq.claims;
 
 import com.reconcileiq.matching.OrderReconciliation;
 import com.reconcileiq.matching.OrderReconciliationRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,7 +11,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class ClaimsService {
@@ -29,9 +30,17 @@ public class ClaimsService {
         this.reconRepository = reconRepository;
     }
 
+    private String getCurrentUserRole() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof com.reconcileiq.auth.UserPrincipal) {
+            return ((com.reconcileiq.auth.UserPrincipal) auth.getPrincipal()).getRole();
+        }
+        return null;
+    }
+
     @Transactional
     public Claim createDraftClaim(String partnerCode, String partnerType, String createdBy,
-                                   List<ClaimItemRequest> items) {
+                                  List<ClaimItemRequest> items) {
         Claim claim = new Claim();
         claim.setClaimNumber("CLM-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         claim.setPartnerCode(partnerCode);
@@ -59,9 +68,14 @@ public class ClaimsService {
     }
 
     @Transactional
-    public Claim submitClaim(Long claimId, String submittedBy) {
+    public Claim submitClaim(Long claimId, String submittedBy, String userRole) {
         Claim claim = claimRepository.findById(claimId)
                 .orElseThrow(() -> new IllegalArgumentException("Claim not found"));
+
+        // Role-based access control: only FINANCE_EXECUTIVE can submit claims
+        if (!"FINANCE_EXECUTIVE".equals(userRole)) {
+            throw new SecurityException("User with role '" + userRole + "' is not allowed to submit claims");
+        }
         if (!"DRAFT".equals(claim.getStatus())) {
             throw new IllegalStateException("Only DRAFT claims can be submitted");
         }
@@ -72,12 +86,17 @@ public class ClaimsService {
     }
 
     @Transactional
-    public Claim approveClaim(Long claimId, String decidedBy, String notes) {
+    public Claim approveClaim(Long claimId, String decidedBy, String notes, String userRole) {
         Claim claim = claimRepository.findById(claimId)
                 .orElseThrow(() -> new IllegalArgumentException("Claim not found"));
-        if (!"SUBMITTED".equals(claim.getStatus())) {
-            throw new IllegalStateException("Only SUBMITTED claims can be approved");
+
+        // Role-based access control
+        boolean allowed = ("FINANCE_EXECUTIVE".equals(userRole) || "COFOUNDER".equals(userRole))
+                && "SUBMITTED".equals(claim.getStatus());
+        if (!allowed) {
+            throw new SecurityException("User with role '" + userRole + "' is not allowed to approve claims");
         }
+
         claim.setStatus("APPROVED");
         claim.setDecidedBy(decidedBy);
         claim.setDecidedAt(Instant.now());
@@ -87,12 +106,17 @@ public class ClaimsService {
     }
 
     @Transactional
-    public Claim rejectClaim(Long claimId, String decidedBy, String notes) {
+    public Claim rejectClaim(Long claimId, String decidedBy, String notes, String userRole) {
         Claim claim = claimRepository.findById(claimId)
                 .orElseThrow(() -> new IllegalArgumentException("Claim not found"));
-        if (!"SUBMITTED".equals(claim.getStatus())) {
-            throw new IllegalStateException("Only SUBMITTED claims can be rejected");
+
+        // Role-based access control
+        boolean allowed = ("FINANCE_EXECUTIVE".equals(userRole) || "COFOUNDER".equals(userRole))
+                && "SUBMITTED".equals(claim.getStatus());
+        if (!allowed) {
+            throw new SecurityException("User with role '" + userRole + "' is not allowed to reject claims");
         }
+
         claim.setStatus("REJECTED");
         claim.setDecidedBy(decidedBy);
         claim.setDecidedAt(Instant.now());
@@ -102,12 +126,18 @@ public class ClaimsService {
     }
 
     @Transactional
-    public Claim markRecovered(Long claimId, String recoveredBy) {
+    public Claim markRecovered(Long claimId, String recoveredBy, String userRole) {
         Claim claim = claimRepository.findById(claimId)
                 .orElseThrow(() -> new IllegalArgumentException("Claim not found"));
+
+        // Role-based access control: only FINANCE_EXECUTIVE can recover
+        if (!"FINANCE_EXECUTIVE".equals(userRole)) {
+            throw new SecurityException("User with role '" + userRole + "' is not allowed to recover claims");
+        }
         if (!"APPROVED".equals(claim.getStatus())) {
             throw new IllegalStateException("Only APPROVED claims can be marked recovered");
         }
+
         claim.setStatus("RECOVERED");
         claim.setRecoveredAt(Instant.now());
         logEvent(claim, "APPROVED", "RECOVERED", recoveredBy, "Payment recovered");
