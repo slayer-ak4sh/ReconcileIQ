@@ -121,17 +121,19 @@ public class MatchingService {
                     WHEN o.channel_code ILIKE 'website%' THEN 10
                     WHEN o.channel_code ILIKE 'quick%' THEN 3
                     ELSE 10 END) AS due_date,
-                -- Expected settlement: order_value - commission - fixed_fee - collection_fee
+                -- Expected settlement: use override from orders table if available, else compute from rate card
                 -- Rounded HALF_UP to 2dp
-                ROUND(COALESCE(crc.commission_pct, 0) * o.order_value / 100, 2) AS commission_amount,
+                ROUND(COALESCE(o.expected_amount_override, COALESCE(crc.commission_pct, 0) * o.order_value / 100), 2) AS commission_amount,
                 COALESCE(crc.fixed_fee, 0) AS fixed_fee_amount,
                 GREATEST(ROUND(COALESCE(crc.collection_fee_pct, 0) * o.order_value / 100, 2),
                          COALESCE(crc.min_collection_fee, 0)) AS collection_fee_amount,
-                ROUND(o.order_value
+                ROUND(COALESCE(o.expected_amount_override,
+                    (SELECT oo.expected_amount_override FROM orders oo WHERE oo.order_id = o.order_id)),
+                    o.order_value
                     - ROUND(COALESCE(crc.commission_pct, 0) * o.order_value / 100, 2)
                     - COALESCE(crc.fixed_fee, 0)
                     - GREATEST(ROUND(COALESCE(crc.collection_fee_pct, 0) * o.order_value / 100, 2),
-                             COALESCE(crc.min_collection_fee, 0)), 2) AS expected_settlement,
+                             COALESCE(crc.min_collection_fee, 0)), 2)) AS expected_settlement,
                 -- Expected freight: weight slab rate + COD fee (if COD) + return fee (if returned)
                 COALESCE(fw.slab_rate, 0) +
                 CASE WHEN o.payment_type = 'COD' THEN COALESCE(crc2.cod_fee_pct, 0) * fw.slab_rate / 100 ELSE 0 END +
@@ -225,16 +227,17 @@ public class MatchingService {
                 LIMIT 1
             ) fw ON fw.rate_card_id = (SELECT c.id FROM courier_rate_cards c WHERE c.courier_code = crc2.courier_code)
             LEFT JOIN (
-                -- Aggregated settlement received (deduped by reference_no, net_amount, settlement_date)
+                -- Aggregated settlement received (deduped by order_id, reference_no, net_amount, settlement_date)
                 SELECT
                     order_id,
                     SUM(net_amount) AS received_settlement,
                     SUM(tcs_amount) AS total_tcs,
                     SUM(tds_amount) AS total_tds
                 FROM (
-                    SELECT DISTINCT ON (reference_no, net_amount, settlement_date)
+                    SELECT DISTINCT ON (order_id, reference_no, net_amount, settlement_date)
                         order_id, net_amount, tcs_amount, tds_amount
                     FROM settlements
+                    ORDER BY order_id, reference_no, net_amount, settlement_date
                 ) s
                 GROUP BY order_id
             ) agg ON agg.order_id = o.order_id

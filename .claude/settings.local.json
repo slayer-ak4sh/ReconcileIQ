@@ -1,6 +1,18 @@
 {
   "permissions": {
     "allow": [
+      "Bash(mvn:*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Bash(docker:*)",
+      "Bash(docker compose:*)",
+      "Bash(psql:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(sha256sum:*)",
+      "Bash(cat:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)"
     ]
