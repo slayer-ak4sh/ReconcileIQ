@@ -1,0 +1,4 @@
+order_id,channel_code,order_value,payment_type,delivery_status,expected_settlement,received_settlement,difference,status,money_at_risk
+ORD-W-204118,Website,1499,COD,DELIVERED,1409,0,-1409,UNPAID_PAST_DUE,1409
+ORD-M-88120,Marketplace 1,1199,PREPAID,DELIVERED,899,862,-37,SHORT_PAID,37
+ORD-W-204377,Website,2398,PREPAID,RETURNED_TO_WAREHOUSE,-96,-142,-46,SHORT_PAID,46

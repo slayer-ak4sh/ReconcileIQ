@@ -45,3 +45,9 @@ node_modules/
 dist/
 .env
 *.log
+
+# generated seed output
+scripts/output/
+scripts/run1/
+scripts/run2/
+scripts/*_large.csv
