@@ -1,0 +1,41 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/
+mvnw
+mvnw.cmd
+
+# Frontend
+node_modules/
+dist/
+build/
+*.log
+npm-debug.log*
+.yarn-integrity
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test reports
+*.dump
+*.dumpstream
+surefire-reports/
+
+# Docker
+docker-compose.override.yml

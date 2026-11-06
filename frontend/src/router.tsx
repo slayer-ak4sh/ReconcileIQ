@@ -1,4 +1,4 @@
-import { createHashRouter, Navigate, Outlet, RouteObject } from 'react-router-dom'
+import { createHashRouter, Navigate, RouteObject } from 'react-router-dom'
 import { useAuth } from './auth/useAuth'
 import type { Role } from './types'
 
