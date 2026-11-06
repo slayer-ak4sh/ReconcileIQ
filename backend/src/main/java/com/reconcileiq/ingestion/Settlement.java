@@ -17,7 +17,7 @@ public class Settlement {
     @Column(nullable = false, length = 100)
     private String orderId;
 
-    @Column(nullable = false, length = 50)
+    @Column(length = 50)
     private String channelCode;
 
     private String referenceNo;

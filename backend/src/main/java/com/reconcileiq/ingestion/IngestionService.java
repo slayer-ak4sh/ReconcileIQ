@@ -332,6 +332,7 @@ public class IngestionService {
         order.setCustomerName(getMappedValue(row, fieldMap, "customerName"));
         order.setCustomerPhone(getMappedValue(row, fieldMap, "customerPhone"));
         order.setCustomerAddress(getMappedValue(row, fieldMap, "customerAddress"));
+        order.setExpectedAmountOverride(parseBigDecimal(getMappedValue(row, fieldMap, "expectedAmountOverride")));
         order.setBatch(batch);
         return order;
     }

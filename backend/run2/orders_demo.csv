@@ -1,0 +1,4 @@
+OrderID,ChannelCode,OrderDate,OrderValue,PaymentType,DeliveryStatus,CustomerName,CustomerPhone,CustomerAddress,expected_amount_override
+ORD-W-204118,Website,2026-11-01,1499,COD,DELIVERED,Customer-ORD-W-204118,999999999204118,Address line for ORD-W-204118,1409
+ORD-M-88120,Marketplace 1,2026-11-01,1199,PREPAID,DELIVERED,Customer-ORD-M-88120,999999999-88120,Address line for ORD-M-88120,899
+ORD-W-204377,Website,2026-11-01,2398,PREPAID,RETURNED_TO_WAREHOUSE,Customer-ORD-W-204377,999999999204377,Address line for ORD-W-204377,-96

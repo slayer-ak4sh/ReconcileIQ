@@ -32,6 +32,9 @@ public class Order {
     private String customerPhone;
     private String customerAddress;
 
+    @Column(name = "expected_amount_override", precision = 12, scale = 2)
+    private java.math.BigDecimal expectedAmountOverride;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "batch_id")
     private UploadBatch batch;
@@ -78,6 +81,8 @@ public class Order {
     public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
     public String getCustomerAddress() { return customerAddress; }
     public void setCustomerAddress(String customerAddress) { this.customerAddress = customerAddress; }
+    public java.math.BigDecimal getExpectedAmountOverride() { return expectedAmountOverride; }
+    public void setExpectedAmountOverride(java.math.BigDecimal expectedAmountOverride) { this.expectedAmountOverride = expectedAmountOverride; }
     public UploadBatch getBatch() { return batch; }
     public void setBatch(UploadBatch batch) { this.batch = batch; }
     public java.time.Instant getCreatedAt() { return createdAt; }

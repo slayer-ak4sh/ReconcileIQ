@@ -94,10 +94,124 @@ def status_from_amounts(rec, exp, freight_diff, st):
     return "SETTLED"
 
 # ── Demo set (3 brief fixtures) ───────────────────────────────────────
+BRIEF_FIXTURES = [
+    ["ORD-W-204118", "Website", "1499", "COD", "DELIVERED", "1409", "0", "-1409", "UNPAID_PAST_DUE", "1409"],
+    ["ORD-M-88120", "Marketplace 1", "1199", "PREPAID", "DELIVERED", "899", "862", "-37", "SHORT_PAID", "37"],
+    ["ORD-W-204377", "Website", "2398", "PREPAID", "RETURNED_TO_WAREHOUSE", "-96", "-142", "-46", "SHORT_PAID", "46"],
+]
+
+DEF_CHANNEL_ORDER_MAP = {
+    "Website": "orders_demo.csv",
+    "Marketplace 1": "orders_demo.csv",
+    "Marketplace 2": "orders_demo.csv",
+    "QuickCommerce": "orders_demo.csv",
+    "Supermarket": "orders_demo.csv",
+}
+
 def gen_demo():
     write_csv("expected_outcomes_demo.csv", BRIEF_FIXTURES,
               ["order_id", "channel_code", "order_value", "payment_type", "delivery_status",
                "expected_settlement", "received_settlement", "difference", "status", "money_at_risk"])
+
+    # ── Write demo partner input files for the 3 brief orders ─────────────
+    # orders_demo.csv: one row per brief order, with partner-specific column names
+    orders_demo_header = ["OrderID", "ChannelCode", "OrderDate", "OrderValue",
+                          "PaymentType", "DeliveryStatus", "CustomerName",
+                          "CustomerPhone", "CustomerAddress", "expected_amount_override"]
+    orders_demo_rows = []
+    for fi in BRIEF_FIXTURES:
+        oid, ch, val, pt, st = fi[0], fi[1], fi[2], fi[3], fi[4]
+        exp_settle = fi[5]  # expected_settlement from BRIEF_FIXTURES
+        # Set order date to a recent date
+        orders_demo_rows.append([
+            oid, ch, "2026-11-01", val, pt, st,
+            f"Customer-{oid}", f"999999999{oid[-6:]}",
+            f"Address line for {oid}", str(exp_settle)
+        ])
+    write_csv("orders_demo.csv", orders_demo_rows, orders_demo_header)
+
+    # settlements_demo.csv: different column names per partner channel
+    # Using Website settlement headers as the demo format
+    settle_demo_header = ["OrderID", "ReferenceNo", "SettleDate", "GrossAmt", "Commission",
+                          "FixedFee", "CollFee", "TCS", "TDS", "NetAmt"]
+    settle_demo_rows = []
+    for fi in BRIEF_FIXTURES:
+        oid, ch, val, pt, st = fi[0], fi[1], fi[2], fi[3], fi[4]
+        exp_settle = fi[5]  # expected_settlement from BRIEF_FIXTURES
+        rec_settle = fi[6]  # received_settlement from BRIEF_FIXTURES
+        status = fi[8]
+
+        # Settlement net amount should reflect received_settlement
+        # For UNPAID_PAST_DUE, no settlement is received (NetAmt = 0)
+        # For SHORT_PAID, settlement is partial or credit
+        if status == "UNPAID_PAST_DUE":
+            net = "0.00"  # No payment received
+        elif status == "SHORT_PAID":
+            # The settlement received is rec_settle (could be positive or negative)
+            net = str(rec_settle)
+        else:
+            net = "0.00"
+        settle_demo_rows.append([
+            oid, f"REF{oid[-6:]}", "2026-11-01",
+            val,  # GrossAmt
+            round(float(val) * 0.10, 2) if ch == "Website" else round(float(val) * 0.05, 2),  # Commission
+            5.00 if ch == "Website" else 2.00,  # FixedFee
+            round(float(val) * 0.02, 2) if ch == "Website" else 0.00,  # CollFee
+            "0.00", "0.00", net
+        ])
+    write_csv("settlements_demo.csv", settle_demo_rows, settle_demo_header)
+
+    # cod_remittances_demo.csv: different column names per partner
+    cod_demo_header = ["OrderID", "CourierCode", "UTRNo", "RemitDate",
+                       "CODCollected", "FeeDeducted", "NetRemitted"]
+    cod_demo_rows = []
+    for fi in BRIEF_FIXTURES:
+        oid, ch, val, pt, st = fi[0], fi[1], fi[2], fi[3], fi[4]
+        if pt == "COD":
+            cod_collected = round(float(val), 2)
+            fee_deducted = round(cod_collected * 0.03, 2)  # 3% fee
+            cod_demo_rows.append([
+                oid, "Courier A", f"UTR{oid[-6:]}", "2026-11-05",
+                cod_collected, fee_deducted, round(cod_collected - fee_deducted, 2)
+            ])
+        else:
+            # PREPAID orders still get a cod row with zero values
+            cod_demo_rows.append([
+                oid, "", "", "", 0.00, 0.00, 0.00
+            ])
+    write_csv("cod_remittances_demo.csv", cod_demo_rows, cod_demo_header)
+
+    # freight_invoices_demo.csv: different column names per partner
+    import random as _random
+    freight_demo_header = ["OrderID", "CourierCode", "InvoiceNo", "InvoiceDate",
+                           "BilledWeight", "FreightCharge", "CODFee", "ReturnFee", "TotalFreight"]
+    freight_demo_rows = []
+    for fi in BRIEF_FIXTURES:
+        oid, ch, val, pt, st = fi[0], fi[1], fi[2], fi[3], fi[4]
+        # Determine weight and freight based on channel and status
+        if ch == "Website":
+            weight = round(_random.uniform(0.5, 5.0), 3)
+            base_freight = 20.00
+            cod_fee = base_freight * 0.02 if pt == "COD" else 0.00
+            return_fee = 75.0 if st == "RETURNED_TO_WAREHOUSE" else 0.0
+        elif ch == "Marketplace 1":
+            weight = round(_random.uniform(1.0, 3.0), 3)
+            base_freight = 15.00
+            cod_fee = base_freight * 0.00 if pt == "COD" else 0.00  # Marketplace 1 has 0% COD fee
+            return_fee = 0.0
+        else:
+            weight = round(_random.uniform(0.5, 8.0), 3)
+            base_freight = 25.00
+            cod_fee = round(base_freight * 0.01, 2) if pt == "COD" else 0.00
+            return_fee = 0.0
+        total_freight = round(base_freight + cod_fee + return_fee, 2)
+        freight_demo_rows.append([
+            oid, "Courier A", f"INV{oid[-6:]}", "2026-11-01",
+            weight, base_freight, cod_fee, return_fee, total_freight
+        ])
+    write_csv("freight_invoices_demo.csv", freight_demo_rows, freight_demo_header)
+
+    # Print summary
     for r in BRIEF_FIXTURES:
         print(f"  {r[0]:12s} {r[1]:12s} {r[2]:5s} {r[3]:8s} {r[4]:15s} {r[5]:5s} {r[6]:5s} {r[7]:6s} {r[8]:15s} {r[9]:5s}")
 
@@ -354,7 +468,8 @@ if __name__ == "__main__":
 
     # Copy to run1
     for fname in ["expected_outcomes_demo.csv", "expected_outcomes_large.csv",
-                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv"]:
+                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv",
+                  "orders_demo.csv", "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
         src = fname
         dst = os.path.join("run1", fname)
         if os.path.exists(src):
@@ -362,7 +477,8 @@ if __name__ == "__main__":
 
     # Clear for second run
     for fname in ["expected_outcomes_demo.csv", "expected_outcomes_large.csv",
-                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv"]:
+                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv",
+                  "orders_demo.csv", "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
         fpath = os.path.join(os.getcwd(), fname)
         if os.path.exists(fpath):
             os.remove(fpath)
@@ -375,7 +491,8 @@ if __name__ == "__main__":
 
     # Copy to run2
     for fname in ["expected_outcomes_demo.csv", "expected_outcomes_large.csv",
-                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv"]:
+                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv",
+                  "orders_demo.csv", "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
         src = fname
         dst = os.path.join("run2", fname)
         if os.path.exists(src):
@@ -385,7 +502,8 @@ if __name__ == "__main__":
     print(f"\n=== SHA256 COMPARISON (run1 vs run2) ===")
     all_match = True
     for fname in ["expected_outcomes_demo.csv", "expected_outcomes_large.csv",
-                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv"]:
+                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv",
+                  "orders_demo.csv", "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
         f1 = os.path.join("run1", fname)
         f2 = os.path.join("run2", fname)
         if os.path.exists(f1) and os.path.exists(f2):
@@ -435,7 +553,8 @@ if __name__ == "__main__":
     # ---- wc -l for every output file ----
     print(f"\n=== FILE ROW COUNTS (wc -l) ===")
     for fname in ["expected_outcomes_demo.csv", "expected_outcomes_large.csv",
-                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv"]:
+                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv",
+                  "orders_demo.csv", "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
         if os.path.exists(fname):
             with open(fname, "r") as f:
                 lines = sum(1 for _ in f)

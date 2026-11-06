@@ -12,15 +12,16 @@ INSERT INTO courier_rate_cards (courier_code, cod_fee_pct, min_cod_fee, return_f
 ('Courier B', 3.00, 20.00, 75.00, CURRENT_DATE);
 
 -- Courier weight slabs (Website typically uses Courier A, Marketplace uses Courier B)
+-- Max weight set to a large number for upper bounds (no NULL allowed)
 INSERT INTO courier_weight_slabs (rate_card_id, min_weight_kg, max_weight_kg, rate) VALUES
 -- Courier A slabs (Website)
 (1, 0.001, 5.000, 100.00),
 (1, 5.001, 10.000, 80.00),
-(1, 10.001, NULL, 60.00),
+(1, 10.001, 1000.000, 60.00),
 -- Courier B slabs (Marketplace 1)
 (2, 0.001, 3.000, 120.00),
 (2, 3.001, 5.000, 100.00),
-(2, 5.001, NULL, 80.00);
+(2, 5.001, 1000.000, 80.00);
 
 -- Demo sources
 INSERT INTO sources (name, code, partner_type, channel_code, courier_code, created_at) VALUES
