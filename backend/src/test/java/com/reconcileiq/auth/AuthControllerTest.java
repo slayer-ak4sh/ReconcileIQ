@@ -39,7 +39,7 @@ public class AuthControllerTest {
                 .content(loginJson))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").exists())
-                .andExpect(jsonPath("$.role").value("ROLE_FINANCE_EXECUTIVE"));
+                .andExpect(jsonPath("$.role").value("FINANCE_EXECUTIVE"));
     }
 
     @Test

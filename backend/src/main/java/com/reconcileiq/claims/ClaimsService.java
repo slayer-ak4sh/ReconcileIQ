@@ -2,6 +2,10 @@ package com.reconcileiq.claims;
 
 import com.reconcileiq.matching.OrderReconciliation;
 import com.reconcileiq.matching.OrderReconciliationRepository;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -9,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,14 +35,6 @@ public class ClaimsService {
         this.reconRepository = reconRepository;
     }
 
-    private String getCurrentUserRole() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof com.reconcileiq.auth.UserPrincipal) {
-            return ((com.reconcileiq.auth.UserPrincipal) auth.getPrincipal()).getRole();
-        }
-        return null;
-    }
-
     @Transactional
     public Claim createDraftClaim(String partnerCode, String partnerType, String createdBy,
                                   List<ClaimItemRequest> items) {
@@ -48,20 +45,23 @@ public class ClaimsService {
         claim.setCreatedBy(createdBy);
         claim.setStatus("DRAFT");
 
+        // Save claim first to generate ID
+        claim = claimRepository.save(claim);
+
         BigDecimal total = BigDecimal.ZERO;
         for (ClaimItemRequest itemReq : items) {
-            OrderReconciliation recon = reconRepository.findByOrderId(itemReq.getOrderId())
-                    .orElseThrow(() -> new IllegalArgumentException("Order reconciliation not found: " + itemReq.getOrderId()));
+            OrderReconciliation recon = reconRepository.findByOrderId(itemReq.orderId())
+                    .orElseThrow(() -> new IllegalArgumentException("Order reconciliation not found: " + itemReq.orderId()));
 
             ClaimItem item = new ClaimItem();
             item.setClaim(claim);
-            item.setOrderId(itemReq.getOrderId());
+            item.setOrderId(itemReq.orderId());
             item.setOrderReconciliation(recon);
-            item.setClaimType(itemReq.getClaimType());
-            item.setAmount(itemReq.getAmount());
-            item.setEvidenceNotes(itemReq.getEvidenceNotes());
+            item.setClaimType(itemReq.claimType());
+            item.setAmount(itemReq.amount());
+            item.setEvidenceNotes(itemReq.evidenceNotes());
             claimItemRepository.save(item);
-            total = total.add(itemReq.getAmount());
+            total = total.add(itemReq.amount());
         }
         claim.setTotalAmount(total);
         return claimRepository.save(claim);
@@ -156,6 +156,25 @@ public class ClaimsService {
         return claimRepository.findById(id).orElse(null);
     }
 
+    public Page<Claim> searchClaims(String status, String partner,
+                                 Pageable pageable) {
+        Specification<Claim> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (status != null && !status.isEmpty()) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            if (partner != null && !partner.isEmpty()) {
+                predicates.add(cb.equal(root.get("partnerCode"), partner));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return claimRepository.findAll(spec, pageable);
+    }
+
     public List<ClaimItem> getClaimItems(Long claimId) {
         return claimItemRepository.findByClaimId(claimId);
     }
@@ -194,19 +213,10 @@ public class ClaimsService {
         claimEventRepository.save(event);
     }
 
-    public static class ClaimItemRequest {
-        private String orderId;
-        private String claimType;
-        private BigDecimal amount;
-        private String evidenceNotes;
-
-        public String getOrderId() { return orderId; }
-        public void setOrderId(String orderId) { this.orderId = orderId; }
-        public String getClaimType() { return claimType; }
-        public void setClaimType(String claimType) { this.claimType = claimType; }
-        public BigDecimal getAmount() { return amount; }
-        public void setAmount(BigDecimal amount) { this.amount = amount; }
-        public String getEvidenceNotes() { return evidenceNotes; }
-        public void setEvidenceNotes(String evidenceNotes) { this.evidenceNotes = evidenceNotes; }
-    }
+    public record ClaimItemRequest(
+            String orderId,
+            String claimType,
+            BigDecimal amount,
+            String evidenceNotes
+    ) {}
 }

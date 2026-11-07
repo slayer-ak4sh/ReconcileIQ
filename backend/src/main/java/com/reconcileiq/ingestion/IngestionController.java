@@ -29,7 +29,7 @@ public class IngestionController {
     }
 
     @PostMapping(consumes = "multipart/form-data")
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<?> uploadFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam("sourceId") Long sourceId,
@@ -50,15 +50,12 @@ public class IngestionController {
         }
     }
 
-    @PostMapping(value = "/{batchId}/ingest", consumes = "multipart/form-data")
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PostMapping(value = "/{batchId}/ingest")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<?> ingestFullFile(
-            @PathVariable Long batchId,
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("sourceId") Long sourceId,
-            @RequestParam("fileType") String fileType) {
+            @PathVariable Long batchId) {
         try {
-            IngestionService.IngestResult result = ingestionService.ingestFullFile(file, sourceId, fileType);
+            IngestionService.IngestResult result = ingestionService.ingestMappedData(batchId);
             return ResponseEntity.ok(Map.of(
                     "inserted", result.inserted,
                     "errors", result.errors
@@ -69,7 +66,7 @@ public class IngestionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<List<UploadBatch>> listUploads(
             @RequestParam(required = false) Long sourceId,
             @RequestParam(required = false) String fileType) {
@@ -91,7 +88,7 @@ public class IngestionController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<UploadBatch> getUpload(@PathVariable Long id) {
         return ingestionService.getBatchRepository().findById(id)
                 .map(ResponseEntity::ok)
@@ -99,7 +96,7 @@ public class IngestionController {
     }
 
     @GetMapping("/{id}/rejected")
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<List<RejectedRow>> getRejectedRows(@PathVariable Long id) {
         return ResponseEntity.ok(rejectedRowRepository.findByBatchId(id));
     }

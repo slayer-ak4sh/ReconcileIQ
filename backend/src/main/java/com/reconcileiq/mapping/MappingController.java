@@ -24,14 +24,14 @@ public class MappingController {
     }
 
     @GetMapping("/active")
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<List<ColumnMapping>> getAllActiveMappings() {
         // This would need a custom query - simplified for now
         return ResponseEntity.ok(List.of());
     }
 
     @PostMapping("/suggest")
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<?> suggestMapping(@RequestParam Long sourceId, @RequestParam String fileType) {
         try {
             MappingSuggestionResponse response = mappingService.suggestMapping(
@@ -43,7 +43,7 @@ public class MappingController {
     }
 
     @PostMapping("/approve")
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<?> approveMapping(@RequestBody ApproveRequest request) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -58,13 +58,13 @@ public class MappingController {
     }
 
     @GetMapping("/{sourceId}/{fileType}/history")
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<List<ColumnMapping>> getHistory(@PathVariable Long sourceId, @PathVariable String fileType) {
         return ResponseEntity.ok(mappingService.getMappingHistory(sourceId, fileType));
     }
 
     @PostMapping("/{sourceId}/{fileType}/rollback")
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<?> rollbackMappingBySource(@PathVariable Long sourceId, @PathVariable String fileType, @RequestParam int targetVersion) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -78,7 +78,7 @@ public class MappingController {
     }
 
     @GetMapping("/{sourceId}/{fileType}/active")
-    @PreAuthorize("hasRole('ROLE_FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
     public ResponseEntity<ColumnMapping> getActiveMapping(@PathVariable Long sourceId, @PathVariable String fileType) {
         return mappingService.getActiveMapping(sourceId, fileType)
                 .map(ResponseEntity::ok)

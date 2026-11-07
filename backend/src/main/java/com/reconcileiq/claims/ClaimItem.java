@@ -20,7 +20,7 @@ public class ClaimItem {
     private String orderId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_reconciliation_id")
+    @JoinColumn(name = "order_reconciliation_id", nullable = true)
     private OrderReconciliation orderReconciliation;
 
     @Column(name = "claim_type", nullable = false, length = 50)
