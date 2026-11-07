@@ -21,12 +21,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401) {
+    const url = error.config?.url || ''
+    const isLogin = url.includes('/auth/login') || url.includes('/auth/me')
+    if (error.response?.status === 401 && !isLogin) {
       localStorage.removeItem('reconcileiq_token')
       localStorage.removeItem('reconcileiq_user')
-      window.location.href = '/login'
+      window.location.href = '/login?session=expired'
     }
-    return Promise.resolve(error)
+    return Promise.reject(error)
   }
 )
 

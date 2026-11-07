@@ -20,7 +20,7 @@ public class MatchingController {
     }
 
     @PostMapping("/run")
-    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
     public MatchingService.MatchingRunSummary runMatching(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
         if (asOfDate == null) {

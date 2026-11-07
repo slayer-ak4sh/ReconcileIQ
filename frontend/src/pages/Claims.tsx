@@ -103,9 +103,9 @@ export default function Claims() {
     window.URL.revokeObjectURL(url)
   }
 
-  const canSubmit = hasRole('ROLE_FINANCE_EXECUTIVE')
-  const canApprove = hasRole('ROLE_COFOUNDER')
-  const canRecover = hasRole('ROLE_FINANCE_EXECUTIVE')
+  const canSubmit = hasRole('FINANCE_EXECUTIVE')
+  const canApprove = hasRole('COFOUNDER')
+  const canRecover = hasRole('FINANCE_EXECUTIVE')
 
   if (isLoading && !data) {
     return (

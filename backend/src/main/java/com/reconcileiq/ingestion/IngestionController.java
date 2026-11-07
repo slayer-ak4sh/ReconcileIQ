@@ -29,7 +29,7 @@ public class IngestionController {
     }
 
     @PostMapping(consumes = "multipart/form-data")
-    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
     public ResponseEntity<?> uploadFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam("sourceId") Long sourceId,
@@ -51,7 +51,7 @@ public class IngestionController {
     }
 
     @PostMapping(value = "/{batchId}/ingest")
-    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
     public ResponseEntity<?> ingestFullFile(
             @PathVariable Long batchId) {
         try {
@@ -66,7 +66,7 @@ public class IngestionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
     public ResponseEntity<List<UploadBatch>> listUploads(
             @RequestParam(required = false) Long sourceId,
             @RequestParam(required = false) String fileType) {
@@ -88,7 +88,7 @@ public class IngestionController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
     public ResponseEntity<UploadBatch> getUpload(@PathVariable Long id) {
         return ingestionService.getBatchRepository().findById(id)
                 .map(ResponseEntity::ok)
@@ -96,7 +96,7 @@ public class IngestionController {
     }
 
     @GetMapping("/{id}/rejected")
-    @PreAuthorize("hasRole('FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
     public ResponseEntity<List<RejectedRow>> getRejectedRows(@PathVariable Long id) {
         return ResponseEntity.ok(rejectedRowRepository.findByBatchId(id));
     }

@@ -1,4 +1,4 @@
-export type Role = 'ROLE_FINANCE_EXECUTIVE' | 'ROLE_COFOUNDER'
+export type Role = 'FINANCE_EXECUTIVE' | 'COFOUNDER'
 
 export interface AuthUser {
   email: string

@@ -28,15 +28,24 @@ public class AuthInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (userRepository.count() == 0) {
-            createDemoUser("exec@demo.com", demoExecPassword, "ROLE_FINANCE_EXECUTIVE", "Finance Executive Demo");
-            createDemoUser("founder@demo.com", demoFounderPassword, "ROLE_COFOUNDER", "Finance Co-founder Demo");
-        }
+        upsertDemoUser("exec@demo.com", demoExecPassword, "FINANCE_EXECUTIVE", "Finance Executive Demo");
+        upsertDemoUser("founder@demo.com", demoFounderPassword, "COFOUNDER", "Finance Co-founder Demo");
     }
 
-    private void createDemoUser(String email, String rawPassword, String role, String fullName) {
+    private void upsertDemoUser(String email, String rawPassword, String role, String fullName) {
         String encoded = passwordEncoder.encode(rawPassword);
-        User user = new User(email, encoded, role, fullName);
-        userRepository.save(user);
+        userRepository.findByEmail(email).ifPresentOrElse(
+            u -> {
+                u.setPasswordHash(encoded);
+                u.setRole(role);
+                u.setFullName(fullName);
+                userRepository.save(u);
+            },
+            () -> {
+                User user = new User(email, encoded, role, fullName);
+                userRepository.save(user);
+            }
+        );
     }
+
 }

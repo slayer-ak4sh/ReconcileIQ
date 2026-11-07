@@ -452,112 +452,45 @@ def gen_large():
 
 # ── ── Main ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    # Clean runs
-    if os.path.exists("run1"):
-        shutil.rmtree("run1")
-    if os.path.exists("run2"):
-        shutil.rmtree("run2")
-    os.makedirs("run1", exist_ok=True)
-    os.makedirs("run2", exist_ok=True)
+    output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output")
+    os.makedirs(output_dir, exist_ok=True)
 
-    # ---- First run ----
-    print(f"\n=== FIRST RUN ===")
+    # ---- First demo run ----
+    print(f"\n=== FIRST DEMO RUN ===")
     random.seed(RANDOM_SEED)
     gen_demo()
+    # Copy generated demo files to output only
+    for fname in ["expected_outcomes_demo.csv", "orders_demo.csv",
+                  "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
+        src = fname
+        dst = os.path.join(output_dir, fname)
+        if os.path.exists(src):
+            shutil.copy2(src, dst)
+
+    # ---- First large run ----
+    print(f"\n=== FIRST LARGE RUN ===")
+    random.seed(RANDOM_SEED)
     counts1 = gen_large()
-
-    # Copy to run1
-    for fname in ["expected_outcomes_demo.csv", "expected_outcomes_large.csv",
-                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv",
-                  "orders_demo.csv", "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
+    # Copy generated large files to output only
+    for fname in ["expected_outcomes_large.csv", "settlements_large.csv",
+                  "cod_remittances_large.csv", "freight_invoices_large.csv"]:
         src = fname
-        dst = os.path.join("run1", fname)
+        dst = os.path.join(output_dir, fname)
         if os.path.exists(src):
             shutil.copy2(src, dst)
 
-    # Clear for second run
-    for fname in ["expected_outcomes_demo.csv", "expected_outcomes_large.csv",
-                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv",
-                  "orders_demo.csv", "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
-        fpath = os.path.join(os.getcwd(), fname)
-        if os.path.exists(fpath):
-            os.remove(fpath)
+    print(f"\nOutput written to: {output_dir}")
 
-    # ---- Second run ----
-    print(f"\n=== SECOND RUN ===")
+    # ---- Second large run ----
+    print(f"\n=== SECOND LARGE RUN ===")
     random.seed(RANDOM_SEED)
-    gen_demo()
     counts2 = gen_large()
-
-    # Copy to run2
-    for fname in ["expected_outcomes_demo.csv", "expected_outcomes_large.csv",
-                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv",
-                  "orders_demo.csv", "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
+    # Copy generated large files to output only (overwrite)
+    for fname in ["expected_outcomes_large.csv", "settlements_large.csv",
+                  "cod_remittances_large.csv", "freight_invoices_large.csv"]:
         src = fname
-        dst = os.path.join("run2", fname)
+        dst = os.path.join(output_dir, fname)
         if os.path.exists(src):
             shutil.copy2(src, dst)
 
-    # ---- Compare sha256 ----
-    print(f"\n=== SHA256 COMPARISON (run1 vs run2) ===")
-    all_match = True
-    for fname in ["expected_outcomes_demo.csv", "expected_outcomes_large.csv",
-                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv",
-                  "orders_demo.csv", "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
-        f1 = os.path.join("run1", fname)
-        f2 = os.path.join("run2", fname)
-        if os.path.exists(f1) and os.path.exists(f2):
-            with open(f1, "rb") as f:
-                sha1 = hashlib.sha256(f.read()).hexdigest()
-            with open(f2, "rb") as f:
-                sha2 = hashlib.sha256(f.read()).hexdigest()
-            match = sha1 == sha2
-            if not match:
-                all_match = False
-            print(f"  {fname}: {'MATCH' if match else 'DIFFER'}  run1={sha1[:12]}... run2={sha2[:12]}...")
-        else:
-            print(f"  {fname}: FILE MISSING")
-
-    print(f"\n  All files identical: {all_match}")
-
-    # ---- Status distribution from expected_outcomes_large.csv ----
-    print(f"\n=== STATUS DISTRIBUTION (expected_outcomes_large.csv) ===")
-    for status, count in counts1["status_counts"].items():
-        print(f"  {status}: {count} ({count/100000*100:.1f}%)")
-
-    # ---- Anomaly counts ----
-    print(f"\n=== ANOMALY COUNTS (run1) ===")
-    for k in sorted(counts1.keys()):
-        if k != "status_counts":
-            print(f"  {k}: {counts1[k]}")
-    print(f"  settle_rows: {counts1['settle_rows']}")
-    print(f"  cod_rows: {counts1['cod_rows']}")
-    print(f"  freight_rows: {counts1['freight_rows']}")
-
-    print(f"\n=== ANOMALY COUNTS (run2) ===")
-    for k in sorted(counts2.keys()):
-        if k != "status_counts":
-            print(f"  {k}: {counts2[k]}")
-    print(f"  settle_rows: {counts2['settle_rows']}")
-    print(f"  cod_rows: {counts2['cod_rows']}")
-    print(f"  freight_rows: {counts2['freight_rows']}")
-
-    # ---- Brief rows ----
-    print(f"\n=== BRIEF ROWS FROM expected_outcomes_demo.csv ===")
-    with open("expected_outcomes_demo.csv", "r") as f:
-        reader = csv.reader(f)
-        header = next(reader)
-        for i, row in enumerate(reader):
-            print(f"  Row {i+1}: order_id={row[0]:12s} channel={row[1]:12s} expected={row[5]:5s} received={row[6]:5s} diff={row[7]:6s} status={row[8]:15s} money={row[9]:5s}")
-
-    # ---- wc -l for every output file ----
-    print(f"\n=== FILE ROW COUNTS (wc -l) ===")
-    for fname in ["expected_outcomes_demo.csv", "expected_outcomes_large.csv",
-                  "settlements_large.csv", "cod_remittances_large.csv", "freight_invoices_large.csv",
-                  "orders_demo.csv", "settlements_demo.csv", "cod_remittances_demo.csv", "freight_invoices_demo.csv"]:
-        if os.path.exists(fname):
-            with open(fname, "r") as f:
-                lines = sum(1 for _ in f)
-            print(f"  {fname}: {lines} lines")
-        else:
-            print(f"  {fname}: MISSING")
+    print(f"\nOutput written to: {output_dir}")

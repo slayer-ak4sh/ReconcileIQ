@@ -98,3 +98,10 @@ right-aligned in tables.
 Claims are records of identified leakage. Nothing in this product initiates
 payments, refunds or filings with partners or banks. "Recovered" is a
 finance-confirmed status, not a transaction.
+
+## A16 — Canonical role strings
+Backend `User` entity stores roles WITHOUT `ROLE_` prefix (`FINANCE_EXECUTIVE`, `COFOUNDER`). 
+`UserPrincipal` extracts the stripped role, uses it as the Spring Security `GrantedAuthority`,
+and returns it via `getRole()`. JWT claims and login API response use the stripped role.
+Frontend `Role` type is `'FINANCE_EXECUTIVE' | 'COFOUNDER'`. All `@PreAuthorize` checks use
+`hasAuthority('...')` (not `hasRole`) to match the stripped role directly.

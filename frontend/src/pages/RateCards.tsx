@@ -50,7 +50,7 @@ interface CourierRateCardRequest {
 function RateCards() {
   const { hasRole } = useAuth()
   const queryClient = useQueryClient()
-  const isExecutive = hasRole('ROLE_FINANCE_EXECUTIVE')
+  const isExecutive = hasRole('FINANCE_EXECUTIVE')
   const [editingChannel, setEditingChannel] = useState<ChannelRateCard | null>(null)
   const [editingCourier, setEditingCourier] = useState<CourierRateCard | null>(null)
 

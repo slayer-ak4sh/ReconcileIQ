@@ -20,9 +20,9 @@ public class UserPrincipal implements UserDetails {
         this.id = id;
         this.email = email;
         this.password = password;
-        this.role = role;
+        this.role = role.replace("ROLE_", "");
         this.fullName = fullName;
-        this.authorities = Collections.singletonList(new SimpleGrantedAuthority(role));
+        this.authorities = Collections.singletonList(new SimpleGrantedAuthority(this.role));
     }
 
     public static UserPrincipal create(User user) {

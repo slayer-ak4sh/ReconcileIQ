@@ -51,3 +51,6 @@ scripts/output/
 scripts/run1/
 scripts/run2/
 scripts/*_large.csv
+
+# Demo CSVs (seed data)
+*_demo.csv

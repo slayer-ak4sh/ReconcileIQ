@@ -29,7 +29,7 @@ export default function Layout() {
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {NAV.map((item) => {
-            if (item.exec && !hasRole('ROLE_FINANCE_EXECUTIVE')) return null
+            if (item.exec && !hasRole('FINANCE_EXECUTIVE')) return null
             const active = loc.pathname === item.to
             const Icon = item.icon
             return (

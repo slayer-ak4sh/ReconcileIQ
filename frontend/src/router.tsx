@@ -36,7 +36,7 @@ export const router = createHashRouter([
       {
         path: 'uploads',
         element: (
-          <ProtectedRoute roles={['ROLE_FINANCE_EXECUTIVE']}>
+          <ProtectedRoute roles={['FINANCE_EXECUTIVE']}>
             <Uploads />
           </ProtectedRoute>
         ),
@@ -44,7 +44,7 @@ export const router = createHashRouter([
       {
         path: 'mapping',
         element: (
-          <ProtectedRoute roles={['ROLE_FINANCE_EXECUTIVE']}>
+          <ProtectedRoute roles={['FINANCE_EXECUTIVE']}>
             <Mapping />
           </ProtectedRoute>
         ),
@@ -76,7 +76,7 @@ export const router = createHashRouter([
       {
         path: 'ratecards',
         element: (
-          <ProtectedRoute roles={['ROLE_FINANCE_EXECUTIVE']}>
+          <ProtectedRoute roles={['FINANCE_EXECUTIVE']}>
             <RateCards />
           </ProtectedRoute>
         ),

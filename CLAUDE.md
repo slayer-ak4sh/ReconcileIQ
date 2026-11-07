@@ -64,7 +64,7 @@ comments.
 ## Coding Standards & Conventions
 1. **Package by feature**: Keep domain components grouped in `auth`, `ingestion`, `mapping`, `matching`, `ratecard`, `claims`, `dashboard`, `common`.
 2. **DTO separation**: Domain entities are never returned in controllers; map to explicit Request/Response DTOs.
-3. **Role Enforcement**: Every backend controller endpoint must have explicit `@PreAuthorize("hasRole('...')")`.
+3. **Role Enforcement**: Every backend controller endpoint must have explicit `@PreAuthorize("hasAuthority('...')")`. Canonical role strings are `FINANCE_EXECUTIVE` and `COFOUNDER` (no ROLE_ prefix). UserPrincipal authorities, JWT role claim, login response, and frontend Role type all use these strings.
 4. **Error Handling**: Standard RFC-7807/custom JSON format `{timestamp, status, code, message, details}` via `@ControllerAdvice`. No raw stack traces.
 5. **PII Masking**: Customer names, phones, addresses masked in API outputs and UI by default.
 6. **No Placeholders**: Write complete, working implementations with no TODOs or dead code.
