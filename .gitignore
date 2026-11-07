@@ -54,3 +54,4 @@ scripts/*_large.csv
 
 # Demo CSVs (seed data)
 *_demo.csv
+.claude/settings.local.json
