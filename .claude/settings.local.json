@@ -1,4 +1,8 @@
 {
+"env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:31415",
+    "ANTHROPIC_AUTH_TOKEN": "freellmapi-6f119d2a9f653b073b44bfd751c794ccd1fa3742bd38495a"
+  },
   "permissions": {
     "allow": [
       "Bash(mvn:*)",
