@@ -13,7 +13,6 @@ import com.reconcileiq.matching.OrderReconciliation;
 import com.reconcileiq.matching.OrderReconciliationRepository;
 import com.reconcileiq.ratecard.ChannelRateCard;
 import com.reconcileiq.ratecard.ChannelRateCardRepository;
-import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
@@ -55,24 +54,20 @@ public class OrdersService {
                                                      String search, LocalDate fromDate, LocalDate toDate,
                                                      BigDecimal minAbsDifference, Pageable pageable) {
 
+        // Build a JOIN query to avoid N+1: fetch reconciliation + order in one query
         Specification<OrderReconciliation> spec = Specification.where((root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // Status filter
             if (status != null && !status.isEmpty()) {
                 predicates.add(cb.equal(root.get("reconciliationStatus"), status));
             }
-
-            // Search filter (order_id)
             if (search != null && !search.isEmpty()) {
                 predicates.add(cb.like(root.get("orderId"), "%" + search + "%"));
             }
-
-            // Min absolute difference filter (settlement_diff)
             if (minAbsDifference != null) {
                 predicates.add(cb.greaterThanOrEqualTo(
-                        cb.abs(root.get("settlementDiff")),
-                        ((Number) minAbsDifference.doubleValue()).doubleValue()
+                        cb.abs(root.<BigDecimal>get("settlementDiff")),
+                        minAbsDifference
                 ));
             }
 
@@ -81,8 +76,34 @@ public class OrdersService {
 
         Page<OrderReconciliation> page = reconRepository.findAll(spec, pageable);
 
+        // Batch-load orders for all reconciliation rows in one query
+        List<String> orderIds = page.getContent().stream()
+                .map(OrderReconciliation::getOrderId)
+                .collect(Collectors.toList());
+
+        Map<String, Order> orderMap = orderIds.isEmpty() ? Map.of() :
+                orderRepository.findAllByOrderIdIn(orderIds).stream()
+                        .collect(Collectors.toMap(Order::getOrderId, o -> o));
+
         List<OrderListItemResponse> responses = page.getContent().stream()
-                .map(this::toListItemResponse)
+                .map(recon -> {
+                    Order order = orderMap.get(recon.getOrderId());
+                    return new OrderListItemResponse(
+                            recon.getOrderId(),
+                            order != null ? order.getChannelCode() : "UNKNOWN",
+                            order != null ? order.getOrderDate() : null,
+                            order != null ? order.getOrderValue() : BigDecimal.ZERO,
+                            order != null ? order.getPaymentType() : "PREPAID",
+                            order != null ? order.getDeliveryStatus() : "DELIVERED",
+                            recon.getReconciliationStatus(),
+                            recon.getDueDate(),
+                            recon.getExpectedSettlement(),
+                            recon.getReceivedSettlement(),
+                            recon.getSettlementDiff(),
+                            recon.getTotalTcs(),
+                            recon.getTotalTds()
+                    );
+                })
                 .collect(Collectors.toList());
 
         return new PageImpl<>(responses, pageable, page.getTotalElements());
@@ -106,12 +127,14 @@ public class OrdersService {
                 .map(this::toFreightDetail)
                 .orElse(null);
 
-        // No order entity FK anymore - use defaults for order fields
-        String channelCode = "UNKNOWN";
-        String paymentType = "PREPAID";
-        BigDecimal orderValue = BigDecimal.ZERO;
+        Order order = orderRepository.findByOrderId(orderId).orElse(null);
+        String channelCode = order != null ? order.getChannelCode() : "UNKNOWN";
 
         ChannelRateCard rateCard = channelRateCardRepository.findByChannelCode(channelCode).orElse(null);
+
+        String maskedName = order != null ? PiiMasker.maskName(order.getCustomerName()) : "—";
+        String maskedPhone = order != null ? PiiMasker.maskPhone(order.getCustomerPhone()) : "—";
+        String maskedAddress = order != null ? PiiMasker.maskAddress(order.getCustomerAddress()) : "—";
 
         CalculationBreakdown breakdown = new CalculationBreakdown(
                 recon.getExpectedSettlement(),
@@ -129,28 +152,10 @@ public class OrdersService {
                 orderId,
                 recon.getReconciliationStatus(),
                 recon.getDueDate(),
-                "—",
-                "—",
-                "—",
+                maskedName,
+                maskedPhone,
+                maskedAddress,
                 breakdown
-        );
-    }
-
-    private OrderListItemResponse toListItemResponse(OrderReconciliation recon) {
-        return new OrderListItemResponse(
-                recon.getOrderId(),
-                "UNKNOWN",
-                null,
-                BigDecimal.ZERO,
-                "PREPAID",
-                "DELIVERED",
-                recon.getReconciliationStatus(),
-                recon.getDueDate(),
-                recon.getExpectedSettlement(),
-                recon.getReceivedSettlement(),
-                recon.getSettlementDiff(),
-                recon.getTotalTcs(),
-                recon.getTotalTds()
         );
     }
 

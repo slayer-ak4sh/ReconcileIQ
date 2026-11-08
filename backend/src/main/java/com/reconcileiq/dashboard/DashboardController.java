@@ -25,7 +25,7 @@ public class DashboardController {
 
     @GetMapping("/money-at-risk")
     @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE') or hasAuthority('COFOUNDER')")
-    public java.util.Map<String, Object> getMoneyAtRisk(
+    public java.util.List<java.util.Map<String, Object>> getMoneyAtRisk(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
         return dashboardService.getMoneyAtRiskByPartnerAndAge(asOfDate);
     }

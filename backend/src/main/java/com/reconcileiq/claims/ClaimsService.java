@@ -90,11 +90,12 @@ public class ClaimsService {
         Claim claim = claimRepository.findById(claimId)
                 .orElseThrow(() -> new IllegalArgumentException("Claim not found"));
 
-        // Role-based access control
-        boolean allowed = ("FINANCE_EXECUTIVE".equals(userRole) || "COFOUNDER".equals(userRole))
-                && "SUBMITTED".equals(claim.getStatus());
-        if (!allowed) {
-            throw new SecurityException("User with role '" + userRole + "' is not allowed to approve claims");
+        // Only COFOUNDER can approve claims
+        if (!"COFOUNDER".equals(userRole)) {
+            throw new SecurityException("Only COFOUNDER can approve claims");
+        }
+        if (!"SUBMITTED".equals(claim.getStatus())) {
+            throw new IllegalStateException("Only SUBMITTED claims can be approved");
         }
 
         claim.setStatus("APPROVED");
@@ -110,11 +111,12 @@ public class ClaimsService {
         Claim claim = claimRepository.findById(claimId)
                 .orElseThrow(() -> new IllegalArgumentException("Claim not found"));
 
-        // Role-based access control
-        boolean allowed = ("FINANCE_EXECUTIVE".equals(userRole) || "COFOUNDER".equals(userRole))
-                && "SUBMITTED".equals(claim.getStatus());
-        if (!allowed) {
-            throw new SecurityException("User with role '" + userRole + "' is not allowed to reject claims");
+        // Only COFOUNDER can reject claims
+        if (!"COFOUNDER".equals(userRole)) {
+            throw new SecurityException("Only COFOUNDER can reject claims");
+        }
+        if (!"SUBMITTED".equals(claim.getStatus())) {
+            throw new IllegalStateException("Only SUBMITTED claims can be rejected");
         }
 
         claim.setStatus("REJECTED");

@@ -3,15 +3,20 @@ package com.reconcileiq.matching;
 import com.reconcileiq.ReconcileIqApplication;
 import com.reconcileiq.auth.User;
 import com.reconcileiq.auth.UserRepository;
+import com.reconcileiq.ingestion.Source;
+import com.reconcileiq.ingestion.SourceRepository;
+import com.reconcileiq.mapping.ColumnMappingRepository;
 import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -47,25 +52,28 @@ class MatchingRulesTest {
     private UserRepository userRepository;
 
     @Autowired
-    private com.reconcileiq.matching.MatchingService matchingService;
+    private MatchingService matchingService;
 
     @Autowired
     private com.reconcileiq.ingestion.IngestionService ingestionService;
 
     @Autowired
-    private com.reconcileiq.mapping.ColumnMappingRepository mappingRepository;
+    private ColumnMappingRepository mappingRepository;
 
     @Autowired
-    private com.reconcileiq.source.SourceRepository sourceRepository;
+    private SourceRepository sourceRepository;
+
+    private Long websiteId;
 
     @BeforeEach
     void setup() throws Exception {
         // Seed sources for Website channel
-        com.reconcileiq.ingestion.Source website = new com.reconcileiq.ingestion.Source("Website", "WEBSITE", "CHANNEL", "Website", null);
-        sourceRepository.save(website);
+        Source website = new Source("Website", "WEBSITE", "CHANNEL", "Website", null);
+        website = sourceRepository.save(website);
+        websiteId = website.getId();
 
         // Seed column mappings
-        saveMapping(website.getId(), "orders",
+        saveMapping(websiteId, "orders",
                 "{\"orderId\": \"OrderID\", \"channelCode\": \"ChannelCode\", \"orderDate\": \"OrderDate\", \"orderValue\": \"OrderValue\", \"paymentType\": \"PaymentType\", \"deliveryStatus\": \"DeliveryStatus\", \"customerName\": \"CustomerName\", \"customerPhone\": \"CustomerPhone\", \"customerAddress\": \"CustomerAddress\", \"expectedAmountOverride\": \"expected_amount_override\"}");
 
         // Create users
@@ -149,16 +157,4 @@ class MatchingRulesTest {
         // Rule: re-running matching should produce identical results
         fail("Implement idempotent re-run test");
     }
-
-    private Long websiteId;
-
-    private void ingestFile(String fileName, String fileType) throws Exception {
-        java.io.File file = new java.io.File("../scripts/output/" + fileName);
-        if (!file.exists()) {
-            throw new IllegalStateException("Demo file not found: " + file.getAbsolutePath());
-        }
-        try (java.io.FileInputStream is = new java.io.FileInputStream(file)) {
-            org.springframework.mock.web.MockMultipartFile mf = new org.springframework.mock.web.MockMultipartFile("file", fileName, "text/csv", is.readAllBytes());
-            ingestionService.ingestFullFile(mf, websiteId, fileType);
-        }
-    }
+}
