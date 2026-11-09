@@ -265,5 +265,3 @@ npm test                   # Run tests
 - [deployment.md](deployment.md) - Deployment guide
 
 ---
-
-*🤖 Generated with [Claude Code](https://claude.com/claude-code)*
