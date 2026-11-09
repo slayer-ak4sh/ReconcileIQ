@@ -1307,7 +1307,3 @@ git clone https://github.com/slayer-ak4sh/ReconcileIQ.git
 cd ReconcileIQ
 ```
 
----
-
-*Document generated for ReconcileIQ project submission*  
-*🤖 Generated with [Claude Code](https://claude.com/claude-code)*
