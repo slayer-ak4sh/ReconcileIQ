@@ -3,16 +3,30 @@
 @tailwind utilities;
 
 @layer base {
-  html { -webkit-font-smoothing: antialiased; }
-  body { @apply bg-ink-50 text-ink-900 font-sans; }
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-ink-50 text-ink-900 font-sans antialiased;
+  }
 }
 
 @layer components {
   .card {
-    @apply bg-white rounded-lg border border-ink-200 shadow-sm;
+    @apply bg-white rounded-xl border border-ink-200 shadow-sm transition-shadow duration-200;
+  }
+  .card:hover {
+    @apply shadow-md;
+  }
+  .card-header {
+    @apply px-5 py-4 border-b border-ink-100 bg-ink-50/50 flex items-center justify-between;
+  }
+  .card-title {
+    @apply font-semibold text-ink-900;
   }
   .table-header {
-    @apply text-ink-500 text-xs font-medium uppercase tracking-wide text-right;
+    @apply text-ink-500 text-xs font-medium uppercase tracking-wider text-right;
   }
   .cell-short {
     @apply bg-amber-50 text-amber-700 font-medium;
@@ -26,8 +40,32 @@
   .cell-settled {
     @apply bg-emerald-50 text-emerald-700 font-medium;
   }
+
+  /* Fintech dashboard enhancements */
+  .kpi-card {
+    @apply group transition-all duration-200 hover:-translate-y-[-2px] hover:shadow-lg;
+  }
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
 }
 
 @layer utilities {
-  .tabular { font-variant-numeric: tabular-nums; }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .font-display {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 600;
+    font-variation-settings: 'wght' 600;
+  }
+  .font-body {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  .gradient-text {
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-ink-900 to-ink-700;
+  }
+  .border-l-alt {
+    @apply border-l border-ink-200;
+  }
 }
