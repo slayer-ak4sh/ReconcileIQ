@@ -113,13 +113,23 @@ public class MappingService {
         Source source = sourceRepository.findById(sourceId)
                 .orElseThrow(() -> new IllegalArgumentException("Source not found"));
 
-        UploadBatch latestBatch = batchRepository.findBySourceIdAndFileType(sourceId, fileType)
+        Optional<UploadBatch> latestBatchOpt = batchRepository.findBySourceIdAndFileType(sourceId, fileType)
                 .stream()
-                .max((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()))
-                .orElseThrow(() -> new IllegalStateException("No uploaded file found for this source/type"));
+                .max((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()));
+
+        if (latestBatchOpt.isEmpty()) {
+            // No upload found - return empty suggestions with empty headers
+            return new MappingSuggestionResponse(sourceId, fileType, List.of(), List.of(), true);
+        }
+
+        UploadBatch latestBatch = latestBatchOpt.get();
 
         List<String> headers = latestBatch.getHeaders();
         List<Map<String, String>> previewRows = latestBatch.getPreviewRows();
+
+        if (headers == null || headers.isEmpty()) {
+            return new MappingSuggestionResponse(sourceId, fileType, List.of(), List.of(), true);
+        }
 
         List<MappingSuggester.Suggestion> suggestions = suggester.suggest(headers, previewRows);
 

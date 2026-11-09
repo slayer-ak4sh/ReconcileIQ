@@ -46,7 +46,7 @@ class IngestionServiceTest {
     private RuleBasedSuggester ruleBasedSuggester;
 
     @Test
-    void testDuplicateFileUploadRejected() throws Exception {
+    void testDuplicateFileUploadIsIdempotent() throws Exception {
         Source source = sourceRepository.save(new Source("Test Channel", "TEST_CH", "CHANNEL", "TEST_CH", null));
 
         String csvContent = "order_id,channel,order_date,order_value,payment_type,delivery_status\n" +
@@ -58,13 +58,11 @@ class IngestionServiceTest {
         // First upload should succeed
         UploadBatch batch1 = ingestionService.uploadAndParse(file1, source.getId(), "ORDERS");
         assertEquals("COMPLETED", batch1.getStatus());
-        assertEquals(1, batch1.getValidRowCount());
 
-        // Second upload with same content should fail
-        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> {
-            ingestionService.uploadAndParse(file2, source.getId(), "ORDERS");
-        });
-        assertTrue(ex.getMessage().contains("Duplicate file upload"));
+        // Second upload with same content should return the existing batch (idempotent)
+        UploadBatch batch2 = ingestionService.uploadAndParse(file2, source.getId(), "ORDERS");
+        assertEquals(batch1.getId(), batch2.getId());
+        assertEquals("COMPLETED", batch2.getStatus());
     }
 
     @Test

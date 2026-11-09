@@ -68,7 +68,7 @@ export default function Dashboard() {
       </header>
 
       <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total orders" value={summary?.totalOrders ?? 0} currency />
+        <StatCard label="Total orders" value={summary?.totalOrders ?? 0} />
         <StatCard label="Money at risk" value={summary?.moneyAtRisk ?? 0} currency />
         <StatCard label="Total leakage" value={summary?.totalLeakage ?? 0} currency />
         <StatCard label="Auto-matched" value={`${(summary?.autoMatchRate ?? 0).toFixed(1)}%`} sub={`${summary?.autoMatched ?? 0} of ${summary?.totalOrders ?? 0}`} />

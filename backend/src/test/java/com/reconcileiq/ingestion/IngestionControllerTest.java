@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -16,26 +17,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(classes = ReconcileIqApplication.class)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 public class IngestionControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private SourceRepository sourceRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    @Autowired private MockMvc mockMvc;
+    @Autowired private UserRepository userRepository;
+    @Autowired private SourceRepository sourceRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
 
     private String execToken;
     private String founderToken;
@@ -61,18 +54,13 @@ public class IngestionControllerTest {
         founder.setCreatedAt(Instant.now());
         userRepository.save(founder);
 
-        String execLogin = mockMvc.perform(get("/api/v1/auth/login") // POST via JSON login
-                .contentType(MediaType.APPLICATION_JSON))
-                .andReturn().getResponse().getContentAsString();
-
-        // Perform login via POST
-        String execRes = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/auth/login")
+        String execRes = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"exec@demo.com\",\"password\":\"ExecPassword123!\"}"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        String founderRes = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/auth/login")
+        String founderRes = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"founder@demo.com\",\"password\":\"FounderPassword123!\"}"))
                 .andExpect(status().isOk())
@@ -102,5 +90,28 @@ public class IngestionControllerTest {
                 .header("Authorization", "Bearer " + founderToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void testUploadSqlFileReturns400() throws Exception {
+        // Create a source in the test DB
+        Source source = new Source("Test Amazon", "AMAZON_TEST", "CHANNEL", "AMAZON", null);
+        source = sourceRepository.save(source);
+
+        MockMultipartFile sqlFile = new MockMultipartFile(
+                "file",
+                "V8__seed_additional_sources.sql",
+                "application/sql",
+                "INSERT INTO sources VALUES (1, 'test');".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/v1/uploads")
+                .file(sqlFile)
+                .param("sourceId", source.getId().toString())
+                .param("fileType", "ORDERS")
+                .header("Authorization", "Bearer " + execToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(
+                        org.hamcrest.Matchers.containsString("Only .csv, .xlsx, .xls files are allowed")));
     }
 }

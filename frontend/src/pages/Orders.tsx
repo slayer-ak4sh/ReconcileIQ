@@ -47,9 +47,11 @@ export default function Orders() {
   const [globalFilter, setGlobalFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [channelFilter, setChannelFilter] = useState('')
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState('')
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('')
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['orders', sorting, columnFilters, pagination, globalFilter, statusFilter, channelFilter],
+    queryKey: ['orders', sorting, columnFilters, pagination, globalFilter, statusFilter, channelFilter, paymentTypeFilter, deliveryStatusFilter],
     queryFn: async () => {
       const params = new URLSearchParams()
       params.set('page', pagination.pageIndex.toString())
@@ -61,6 +63,8 @@ export default function Orders() {
       if (globalFilter) params.set('search', globalFilter)
       if (statusFilter) params.set('status', statusFilter)
       if (channelFilter) params.set('channel', channelFilter)
+      if (paymentTypeFilter) params.set('paymentType', paymentTypeFilter)
+      if (deliveryStatusFilter) params.set('deliveryStatus', deliveryStatusFilter)
       const res = await api.get<OrdersResponse>(`/orders?${params.toString()}`)
       return res.data
     },
@@ -257,7 +261,27 @@ export default function Orders() {
                 <option value="QuickCommerce">QuickCommerce</option>
                 <option value="Supermarket">Supermarket</option>
               </select>
-              {(globalFilter || statusFilter || channelFilter) && (
+              <select
+                value={paymentTypeFilter}
+                onChange={(e) => setPaymentTypeFilter(e.target.value)}
+                className="px-3 py-2 rounded-md border border-ink-300 focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none text-sm"
+              >
+                <option value="">All Payment Types</option>
+                <option value="COD">COD</option>
+                <option value="PREPAID">Prepaid</option>
+              </select>
+              <select
+                value={deliveryStatusFilter}
+                onChange={(e) => setDeliveryStatusFilter(e.target.value)}
+                className="px-3 py-2 rounded-md border border-ink-300 focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none text-sm"
+              >
+                <option value="">All Delivery Status</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="RETURNED_TO_WAREHOUSE">Returned to Warehouse</option>
+                <option value="IN_TRANSIT">In Transit</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+              {(globalFilter || statusFilter || channelFilter || paymentTypeFilter || deliveryStatusFilter) && (
                 <button
                   onClick={() => { setGlobalFilter(''); setStatusFilter(''); setChannelFilter(''); }}
                   className="flex items-center gap-1 px-3 py-2 rounded-md border border-ink-300 text-ink-600 hover:bg-ink-100 text-sm"

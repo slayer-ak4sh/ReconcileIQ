@@ -46,6 +46,9 @@ public class UploadBatch {
     @Column(columnDefinition = "TEXT")
     private String headersJson;
 
+    @Column(columnDefinition = "TEXT")
+    private String rowsJson;
+
     @Transient
     private List<Map<String, String>> previewRows;
 
@@ -104,4 +107,17 @@ public class UploadBatch {
     }
     public List<Map<String, String>> getPreviewRows() { return previewRows; }
     public void setPreviewRows(List<Map<String, String>> previewRows) { this.previewRows = previewRows; }
+
+    public List<Map<String, String>> getRows() {
+        if (rowsJson == null || rowsJson.isBlank()) return List.of();
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(rowsJson, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, String>>>() {});
+        } catch (Exception e) { return List.of(); }
+    }
+    public void setRows(List<Map<String, String>> rows) {
+        try {
+            this.rowsJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(rows);
+        } catch (Exception e) { this.rowsJson = "[]"; }
+    }
 }

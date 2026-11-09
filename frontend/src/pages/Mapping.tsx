@@ -32,7 +32,9 @@ export default function Mapping() {
   })
 
   const suggestMutation = useMutation({
-    mutationFn: () => api.post(`/mappings/suggest?sourceId=${sourceId}&fileType=${fileType}`),
+    mutationFn: () => api.post('/mappings/suggest', null, {
+      params: { sourceId: Number(sourceId), fileType }
+    }),
     onSuccess: (res) => {
       if (res.data && res.data.suggestions && Array.isArray(res.data.suggestions)) {
         const mapObj: Record<string, string> = {}

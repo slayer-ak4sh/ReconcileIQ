@@ -1,0 +1,1 @@
+ALTER TABLE upload_batches ADD COLUMN IF NOT EXISTS rows_json TEXT;

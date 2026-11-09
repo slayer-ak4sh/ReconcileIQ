@@ -7,7 +7,7 @@ export const api: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000,
+  timeout: 120000,
 })
 
 // Add Authorization header from localStorage
@@ -21,18 +21,10 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => {
-    // Normalize response data for known endpoints that might return unexpected structures
-    if (response.config.url?.includes('/uploads')) {
-      if (!Array.isArray(response.data)) {
-        console.warn('Uploads endpoint did not return array, normalizing...')
-        response.data = response.data.data || []
-      }
-    }
-    if (response.config.url?.includes('/mappings')) {
-      if (response.data && !Array.isArray(response.data.suggestions)) {
-        console.warn('Mapping suggestions not in expected format')
-        response.data.suggestions = []
-      }
+    // Only normalize the GET /uploads list endpoint, not POST /uploads upload response
+    if (response.config.method === 'get' && response.config.url?.endsWith('/uploads') && !Array.isArray(response.data)) {
+      console.warn('Uploads endpoint did not return array, normalizing...')
+      response.data = response.data.data || []
     }
     return response
   },
@@ -52,7 +44,7 @@ export function getApiError(error: unknown): { message: string; code?: string; d
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as any
     return {
-      message: data?.message || error.message || 'Request failed',
+      message: data?.error || data?.message || error.message || 'Request failed',
       code: data?.code,
       details: data?.details,
     }

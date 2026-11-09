@@ -63,16 +63,36 @@ public class IngestionService {
 
     // ---------- File Upload & Parsing ----------
 
+    private static final java.util.Set<String> ALLOWED_EXTENSIONS = java.util.Set.of(".csv", ".xlsx", ".xls");
+    private static final java.util.Set<String> ALLOWED_CONTENT_TYPES = java.util.Set.of(
+            "text/csv", "application/csv", "text/plain",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel"
+    );
+
     public UploadBatch uploadAndParse(MultipartFile file, Long sourceId, String fileType) throws Exception {
+        // Validate file extension
+        String originalName = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+        boolean validExt = ALLOWED_EXTENSIONS.stream().anyMatch(originalName::endsWith);
+        if (!validExt) {
+            throw new IllegalArgumentException("Invalid file type. Only .csv, .xlsx, .xls files are allowed.");
+        }
+        // Validate content type
+        String contentType = file.getContentType();
+        if (contentType != null && !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase().split(";")[0].trim())) {
+            throw new IllegalArgumentException("Invalid content type: " + contentType + ". Only CSV and Excel files are allowed.");
+        }
+
         Source source = sourceRepository.findById(sourceId)
                 .orElseThrow(() -> new IllegalArgumentException("Source not found: " + sourceId));
 
         String fileHash = computeHash(file);
-        if (batchRepository.findByFileHash(fileHash).isPresent()) {
-            throw new IllegalStateException("Duplicate file upload detected (same hash)");
+        Optional<UploadBatch> existing = batchRepository.findByFileHash(fileHash);
+        if (existing.isPresent()) {
+            // Idempotent: return the existing batch so the UI can proceed to mapping
+            return existing.get();
         }
 
-        String contentType = file.getContentType();
         boolean isExcel = contentType != null && (
                 contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") ||
                 contentType.equals("application/vnd.ms-excel")
@@ -82,10 +102,9 @@ public class IngestionService {
         batch = batchRepository.save(batch);
 
         try {
-            List<Map<String, String>> allRows = new ArrayList<>();
-
             ExcelParser.ParseResult excelResult = null;
             CsvParser.ParseResult csvResult = null;
+            List<Map<String, String>> allRows = new ArrayList<>();
 
             if (isExcel) {
                 excelResult = excelParser.parse(file, 20, allRows::add);
@@ -98,16 +117,18 @@ public class IngestionService {
             int errorRows = isExcel ? excelResult.errorRows : csvResult.errorRows;
             List<Map<String, String>> previewRows = isExcel ? excelResult.previewRows : csvResult.previewRows;
             List<String> headers = isExcel ? excelResult.headers : csvResult.headers;
+            List<Map<String, String>> allParsedRows = isExcel ? excelResult.allRows : csvResult.allRows;
 
             batch.setRowCount(totalRows);
             batch.setValidRowCount(validRows);
             batch.setErrorCount(errorRows);
             batch.setStatus("COMPLETED");
-            batchRepository.save(batch);
+            batch.setHeaders(headers);  // persist headers_json
+            batch.setRows(allParsedRows);  // persist all rows for later ingestion
+            batch = batchRepository.save(batch);
 
-            // Store for mapping suggestion preview
+            // Store transient preview rows (not persisted, only for immediate response)
             batch.setPreviewRows(previewRows);
-            batch.setHeaders(headers);
 
             // Save rejected rows
             if (isExcel && excelResult.rejectedRows != null) {
@@ -151,13 +172,122 @@ public class IngestionService {
 
         Map<String, String> fieldMap = parseMappingJson(mapping.getMappingsJson());
 
-        int inserted = 0;
-        int errors = 0;
+        List<Map<String, String>> allRows = batch.getRows();
+        if (allRows == null || allRows.isEmpty()) {
+            return new IngestResult(0, batch.getErrorCount());
+        }
 
-        // Stream parse and insert in batches - re-read file from storage
-        // For this implementation, we'll simulate by re-parsing (in production, file would be stored)
-        // This demonstrates the streaming pattern
-        return new IngestResult(inserted, errors);
+        AtomicInteger inserted = new AtomicInteger(0);
+        AtomicInteger errors = new AtomicInteger(0);
+        final int BATCH_SIZE = 5000;
+
+        String fileType = batch.getFileType();
+
+        if ("ORDERS".equalsIgnoreCase(fileType)) {
+            List<Order> orderBatch = new ArrayList<>();
+            for (Map<String, String> row : allRows) {
+                try {
+                    Order order = mapToOrder(row, fieldMap, source, batch);
+                    if (order != null) {
+                        orderBatch.add(order);
+                        if (orderBatch.size() >= BATCH_SIZE) {
+                            orderRepository.saveAll(orderBatch);
+                            inserted.addAndGet(orderBatch.size());
+                            orderBatch.clear();
+                        }
+                    } else {
+                        errors.incrementAndGet();
+                    }
+                } catch (Exception e) {
+                    errors.incrementAndGet();
+                }
+            }
+            if (!orderBatch.isEmpty()) {
+                orderRepository.saveAll(orderBatch);
+                inserted.addAndGet(orderBatch.size());
+            }
+
+        } else if ("SETTLEMENT".equalsIgnoreCase(fileType)) {
+            List<Settlement> settlementBatch = new ArrayList<>();
+            for (Map<String, String> row : allRows) {
+                try {
+                    Settlement s = mapToSettlement(row, fieldMap, batch);
+                    if (s != null) {
+                        settlementBatch.add(s);
+                        if (settlementBatch.size() >= BATCH_SIZE) {
+                            settlementRepository.saveAll(settlementBatch);
+                            inserted.addAndGet(settlementBatch.size());
+                            settlementBatch.clear();
+                        }
+                    } else {
+                        errors.incrementAndGet();
+                    }
+                } catch (Exception e) {
+                    errors.incrementAndGet();
+                }
+            }
+            if (!settlementBatch.isEmpty()) {
+                settlementRepository.saveAll(settlementBatch);
+                inserted.addAndGet(settlementBatch.size());
+            }
+
+        } else if ("COD_REMITTANCE".equalsIgnoreCase(fileType)) {
+            List<CodRemittance> codBatch = new ArrayList<>();
+            for (Map<String, String> row : allRows) {
+                try {
+                    CodRemittance c = mapToCodRemittance(row, fieldMap, batch);
+                    if (c != null) {
+                        codBatch.add(c);
+                        if (codBatch.size() >= BATCH_SIZE) {
+                            codRepository.saveAll(codBatch);
+                            inserted.addAndGet(codBatch.size());
+                            codBatch.clear();
+                        }
+                    } else {
+                        errors.incrementAndGet();
+                    }
+                } catch (Exception e) {
+                    errors.incrementAndGet();
+                }
+            }
+            if (!codBatch.isEmpty()) {
+                codRepository.saveAll(codBatch);
+                inserted.addAndGet(codBatch.size());
+            }
+
+        } else if ("FREIGHT_INVOICE".equalsIgnoreCase(fileType)) {
+            List<FreightInvoice> freightBatch = new ArrayList<>();
+            for (Map<String, String> row : allRows) {
+                try {
+                    FreightInvoice f = mapToFreightInvoice(row, fieldMap, batch);
+                    if (f != null) {
+                        freightBatch.add(f);
+                        if (freightBatch.size() >= BATCH_SIZE) {
+                            freightRepository.saveAll(freightBatch);
+                            inserted.addAndGet(freightBatch.size());
+                            freightBatch.clear();
+                        }
+                    } else {
+                        errors.incrementAndGet();
+                    }
+                } catch (Exception e) {
+                    errors.incrementAndGet();
+                }
+            }
+            if (!freightBatch.isEmpty()) {
+                freightRepository.saveAll(freightBatch);
+                inserted.addAndGet(freightBatch.size());
+            }
+        }
+
+        batch.setValidRowCount(inserted.get());
+        batch.setErrorCount(errors.get());
+        batchRepository.save(batch);
+
+        auditLogService.log(getCurrentUserEmail(), "DATA_INGESTION", "UploadBatch", batch.getId().toString(),
+                Map.of("inserted", inserted.get(), "errors", errors.get(), "fileType", batch.getFileType()));
+
+        return new IngestResult(inserted.get(), errors.get());
     }
 
     // ---------- Streaming Ingestion with Batch Insert ----------
