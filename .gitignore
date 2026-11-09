@@ -19,7 +19,6 @@ dist/
 build/
 *.log
 npm-debug.log*
-.yarn-integrity
 
 # IDE
 .idea/
@@ -44,7 +43,6 @@ target/
 node_modules/
 dist/
 .env
-*.log
 
 # generated seed output
 scripts/output/
@@ -52,7 +50,23 @@ scripts/run1/
 scripts/run2/
 scripts/*_large.csv
 
-# Demo CSVs (seed data)
+# Demo CSVs (seed data - keep small files)
 *_demo.csv
+
+# Claude settings
 .claude/settings.local.json
-.claude/settings.local.json
+
+# Submission ZIP (generated at build time)
+ReconcileIQ_Documentation.zip
+
+# Frontend test backup
+frontend/src/pages/Login.tsx.backup
+frontend/test.csv
+
+# Generated output files
+backend/scripts/output/
+backend/run1/
+backend/run2/
+output/
+run1/
+run2/

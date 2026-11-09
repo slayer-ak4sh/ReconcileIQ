@@ -27,13 +27,12 @@ spring:
       max-request-size: 110MB
 
 jwt:
-  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
   expiration-ms: 86400000 # 24 hours
+  # secret must be provided via JWT_SECRET env var; app fails fast if missing
 
 app:
-  demo:
-    exec-password: ${DEMO_EXEC_PASSWORD:Exec@12345}
-    founder-password: ${DEMO_FOUNDER_PASSWORD:Founder@12345}
+  # demo passwords must be provided via DEMO_EXEC_PASSWORD and DEMO_FOUNDER_PASSWORD env vars
+  # (no hardcoded defaults; app fails fast if missing)
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:80}

@@ -23,7 +23,7 @@ graph TD
     
     subgraph DB["Database (PostgreSQL 16)"]
         Orders[orders]
-        Reconciliations[order_reconciliations]
+        Reconciliation[order_reconciliations]
         Settlements[settlements]
         CodRem[cod_remittances]
         Freight[freight_invoices]
@@ -44,11 +44,11 @@ graph TD
     Ingestion --> CodRem
     Ingestion --> Freight
     Orders --> Reconciliation
-    Settlements --> Reconciliations
-    CodRem --> Reconciliations
-    Freight --> Reconciliations
+    Settlements --> Reconciliation
+    CodRem --> Reconciliation
+    Freight --> Reconciliation
     RateCards --> Matching
-    Reconiliations --> DashBoard
+    Dashboard --> DashBoard
     Orders --> Matching
     ClaimsDB --> Claims
     
@@ -61,7 +61,7 @@ graph TD
     Security --> Claims
     Security --> DashBoard
     Web --> Orders
-    Web --> Reconciliations
+    Web --> Reconciliation
     
     classDef layer fill:#e6f4ff,stroke:#0b5394
     class Backend,Frontend,DB,External layer

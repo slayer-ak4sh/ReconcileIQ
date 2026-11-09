@@ -65,11 +65,11 @@ jobs:
       - name: Build
         run: cd frontend && npm run build
 
-  benchmark (optional):
+  benchmark-nightly:
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
-    schedule:
-      - cron: '0 2 * * 0'  # Weekly at 2 AM Sunday
+    on:
+      schedule:
+        - cron: '0 2 * * 0'  # Weekly at 2 AM Sunday
     services:
       postgres:
         image: postgres:16-alpine

@@ -566,27 +566,27 @@ com.reconcileiq/
 
 ### Core Tables (19 Total)
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `users` | Authentication & roles | id, email, password_hash, role (FINANCE_EXECUTIVE/COFOUNDER), full_name |
-| `sources` | Sales channels & couriers | id, name, code, partner_type (CHANNEL/COURIER), channel_code, courier_code |
-| `column_mappings` | Versioned header mappings | id, source_id, file_type, version, mappings_json, is_active |
-| `upload_batches` | File upload tracking | id, source_id, file_type, file_hash, row_count, valid_row_count, status |
-| `orders` | Master order feed | id, order_id (UK), channel_code, order_date, order_value, payment_type, delivery_status |
-| `settlements` | Channel settlement rows | id, batch_id, order_id, channel_code, reference_no, settlement_date, net_amount, tcs, tds |
-| `cod_remittances` | COD remittance rows | id, batch_id, order_id, courier_code, utr_no, remittance_date, net_remitted |
-| `freight_invoices` | Courier freight invoices | id, batch_id, order_id, courier_code, invoice_no, billed_weight, total_freight |
-| `returns_scans` | Warehouse return scans | id, batch_id, order_id, courier_code, waybill_no, scan_date, condition_status |
-| `channel_rate_cards` | Channel fee structures | id, channel_code (UK), commission_pct, fixed_fee, collection_fee_pct, min_collection_fee |
-| `courier_rate_cards` | Courier fee structures | id, courier_code (UK), cod_fee_pct, min_cod_fee, return_fee |
-| `courier_weight_slabs` | Weight-based freight rates | id, rate_card_id, min_weight_kg, max_weight_kg, rate |
-| `order_reconciliation` | Computed reconciliation | id, order_id (UK), due_date, expected/received settlement/freight, diffs, status, is_matched |
-| `review_queue` | Unmatched order candidates | id, batch_id, file_type, raw_data_json, suggested_order_id, confidence, status |
-| `claims` | Partner claims | id, claim_number (UK), partner_code, partner_type, total_amount, status, created_by |
-| `claim_items` | Line items per claim | id, claim_id, order_id, claim_type, amount, evidence_notes |
-| `claim_events` | Status transition audit | id, claim_id, from_status, to_status, actor_email, notes, created_at |
-| `audit_log` | System-wide audit trail | id, actor_email, action, resource_type, resource_id, details_json |
-| `settings` | Configurable parameters | id, setting_key (UK), setting_value, description |
+The Flyway migrations (V1 through V11) create exactly 19 tables:
+
+1. `users`
+2. `sources`
+3. `column_mappings`
+4. `upload_batches`
+5. `orders`
+6. `settlements`
+7. `cod_remittances`
+8. `freight_invoices`
+9. `returns_scans`
+9. `channel_rate_cards`
+10. `courier_rate_cards`
+11. `courier_weight_slabs`
+12. `order_reconciliation`
+13. `review_queue`
+14. `claims`
+15. `claim_items`
+16. `claim_events`
+17. `audit_log`
+18. `settings`
 
 ### Performance Indexes
 - `idx_orders_order_id` — Order lookup
@@ -690,6 +690,7 @@ All endpoints under `/api/v1` with JWT Bearer authentication.
 | GET | `/mapping/sources` | List sources with mappings | FINANCE_EXECUTIVE |
 | GET | `/mapping/suggest/{sourceId}/{fileType}` | AI mapping suggestions | FINANCE_EXECUTIVE |
 | POST | `/mapping/approve` | Approve mapping version | FINANCE_EXECUTIVE |
+| POST | `/mapping/{sourceId}/{fileType}/rollback?targetVersion=` | Rollback mapping version | FINANCE_EXECUTIVE |
 
 ### 12.8 Error Response Format
 
@@ -944,12 +945,18 @@ ON CONFLICT (order_id) DO UPDATE SET ...
 
 ### 16.2 Status Precedence (Strict Order)
 
+> **Note:** `PENDING` is the status for review-queue items — orders that
+> were not matched because their order ID was not found in the orders feed.
+> These are not classified into the four primary statuses until a human
+> resolves the review queue entry.
+
 | Priority | Status | Condition |
 |----------|--------|-----------|
 | 1 | **UNPAID_PAST_DUE** | `received_settlement == 0` AND `today > due_date` |
 | 2 | **SHORT_PAID** | `|diff| > tolerance` AND `received < expected` |
 | 3 | **FREIGHT_OVERCHARGED** | `|freight_diff| > tolerance` AND `received_freight > expected_freight` |
 | 4 | **SETTLED** | All other cases where `|diff| <= tolerance` |
+| — | **PENDING** | Review-queue items; no order-ID match found; requires human action |
 
 ### 16.3 Money at Risk Calculation
 ```
@@ -978,6 +985,12 @@ Due Date = delivery_date + settlement_window_days
 - Shown in separate tax panel
 - `net_leakage = expected_settlement - received_settlement`
 - `tax_deducted = SUM(tcs_amount + tds_amount)`
+
+> **Limitation:** The partner-wise tax rollup view is not implemented in the
+> frontend UI. The `TaxSummary` DTO exists in the backend and contains
+> per-order tax amounts, but there is no dashboard or claims UI widget that
+> displays aggregated tax by partner. Such a view would require a new API
+> endpoint and UI component.
 
 ### 16.6 Worked Examples
 
@@ -1297,6 +1310,37 @@ cd frontend && npm test
 
 ---
 
+## 0. Known Limitations and Honest Status
+
+This document is intended to be an honest representation of the system's current state. Key limitations include:
+
+- **No self-serve user management**: Only 2 demo users exist (`exec@demo.com`, `founder@demo.com`). No signup, invite, or password-reset functionality.
+- **Claims attachments not supported**: No file upload capability for claim evidence; `claim_items` data is text-only.
+- **Return status is partial**: `WAREHOUSE_SCAN` ingestion exists but the
+> `RETURN_NOT_RECEIVED` status and its superseding logic (per rules.md §8) is
+> not implemented end-to-end. The `RETURN_NOT_RECEIVED` status would supersede
+> all other statuses when a warehouse scan confirms non-receipt, but this
+> feature is in Phase 5 and not yet built.
+- **Rate card coupling**: The system assumes a single courier per channel. Multi-courier routing is not supported.
+- **Rate card effective-from not enforced**: Rate cards are loaded at matching time but historical date filtering in the UI is minimal.
+- **No real-time dashboard updates**: Dashboard data is fetched on mount via TanStack Query; no WebSocket or SSE updates.
+- **TCS/TDS tax rollup not in UI**: While the backend `TaxSummary` DTO exists, there is no dashboard widget showing partner-wise tax aggregation.
+
+### AI vs Rules
+
+Matching and expected-amount calculations are **fully rule-based**. The system does not use AI/ML for:
+- Computing expected settlement or freight amounts
+- Classifying reconciliation status (SETTLED/SHORT_PAID/UNPAID_PAST_DUE/FREIGHT_OVERCHARGED)
+- Determining money-at-risk values
+
+AI is limited to **column mapping suggestions only**:
+- Header normalization via a synonym dictionary
+- Jaro-Winkler similarity for candidate match suggestions
+- These suggestions go to the `review_queue` and are **never applied automatically** — each requires explicit approval via `POST /mapping/approve` or rollback.
+
+All 62 backend unit/integration tests and 29 frontend Vitest tests cover the rule-based logic. No test exercises AI/ML decisions because there are none for core reconciliation.
+
+
 ## Appendix: GitHub Repository
 
 **Repository URL:** https://github.com/slayer-ak4sh/ReconcileIQ.git
@@ -1306,4 +1350,4 @@ cd frontend && npm test
 git clone https://github.com/slayer-ak4sh/ReconcileIQ.git
 cd ReconcileIQ
 ```
-
+*Document generated for ReconcileIQ project submission*  

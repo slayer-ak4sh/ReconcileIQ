@@ -1,4 +1,0 @@
-OrderID,CourierCode,InvoiceNo,InvoiceDate,BilledWeight,FreightCharge,CODFee,ReturnFee,TotalFreight
-ORD-W-204118,Courier A,INV204118,2026-11-01,3.377,20.0,0.4,0.0,20.4
-ORD-M-88120,Courier A,INV-88120,2026-11-01,1.05,15.0,0.0,0.0,15.0
-ORD-W-204377,Courier A,INV204377,2026-11-01,1.738,20.0,0.0,75.0,95.0
