@@ -24,7 +24,7 @@ public class IngestionService {
 
     private final SourceRepository sourceRepository;
     private final ColumnMappingRepository mappingRepository;
-    public final UploadBatchRepository batchRepository;
+    private final UploadBatchRepository batchRepository;
     private final OrderRepository orderRepository;
     private final SettlementRepository settlementRepository;
     private final CodRemittanceRepository codRepository;
@@ -366,7 +366,8 @@ public class IngestionService {
         c.setOrderId(orderId);
         c.setCourierCode(getMappedValue(row, fieldMap, "courierCode"));
         c.setUtrNo(getMappedValue(row, fieldMap, "utrNo"));
-        c.setRemittanceDate(parseDate(getMappedValue(row, fieldMap, "remittanceDate")));
+        String remittanceDateStr = getMappedValue(row, fieldMap, "remittanceDate");
+        c.setRemittanceDate(remittanceDateStr != null && !remittanceDateStr.isEmpty() ? parseDate(remittanceDateStr) : java.time.LocalDate.now());
         c.setCodCollected(parseBigDecimal(getMappedValue(row, fieldMap, "codCollected")));
         c.setFeeDeducted(parseBigDecimal(getMappedValue(row, fieldMap, "feeDeducted")));
         c.setNetRemitted(parseBigDecimal(getMappedValue(row, fieldMap, "netRemitted")));

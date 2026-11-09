@@ -43,8 +43,8 @@ public class UploadBatch {
     @Column(nullable = false)
     private java.time.Instant createdAt;
 
-    @Transient
-    private List<String> headers;
+    @Column(columnDefinition = "TEXT")
+    private String headersJson;
 
     @Transient
     private List<Map<String, String>> previewRows;
@@ -90,8 +90,18 @@ public class UploadBatch {
     public java.time.Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(java.time.Instant createdAt) { this.createdAt = createdAt; }
 
-    public List<String> getHeaders() { return headers; }
-    public void setHeaders(List<String> headers) { this.headers = headers; }
+    public List<String> getHeaders() {
+        if (headersJson == null || headersJson.isBlank()) return List.of();
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(headersJson, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+        } catch (Exception e) { return List.of(); }
+    }
+    public void setHeaders(List<String> headers) {
+        try {
+            this.headersJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(headers);
+        } catch (Exception e) { this.headersJson = "[]"; }
+    }
     public List<Map<String, String>> getPreviewRows() { return previewRows; }
     public void setPreviewRows(List<Map<String, String>> previewRows) { this.previewRows = previewRows; }
 }

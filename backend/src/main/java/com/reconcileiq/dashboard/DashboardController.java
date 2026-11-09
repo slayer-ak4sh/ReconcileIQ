@@ -1,5 +1,9 @@
 package com.reconcileiq.dashboard;
 
+import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -25,8 +29,12 @@ public class DashboardController {
 
     @GetMapping("/money-at-risk")
     @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE') or hasAuthority('COFOUNDER')")
-    public java.util.List<java.util.Map<String, Object>> getMoneyAtRisk(
+    public java.util.Map<String, Object> getMoneyAtRisk(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
-        return dashboardService.getMoneyAtRiskByPartnerAndAge(asOfDate);
+        List<Map<String, Object>> buckets = dashboardService.getMoneyAtRiskByPartnerAndAge(asOfDate);
+        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        response.put("byPartner", buckets);
+        response.put("byAgeBucket", dashboardService.getAgeBucketSummary(buckets));
+        return response;
     }
 }

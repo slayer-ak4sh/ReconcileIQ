@@ -119,9 +119,18 @@ export interface ColumnMapping {
 }
 
 export interface MappingSuggestion {
-  field: string
+  header: string
+  canonicalField: string
   confidence: number
   reason: string
+}
+
+export interface MappingSuggestionResponse {
+  sourceId: number
+  fileType: string
+  suggestions: MappingSuggestion[]
+  previewRows: Record<string, string>[]
+  allMapped: boolean
 }
 
 export interface ChannelRateCard {

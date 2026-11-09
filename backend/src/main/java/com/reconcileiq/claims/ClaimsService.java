@@ -194,15 +194,24 @@ public class ClaimsService {
         csv.append("Claim Number,Partner Code,Partner Type,Order ID,Claim Type,Amount,Evidence Notes\n");
         for (ClaimItem item : items) {
             csv.append(String.format("%s,%s,%s,%s,%s,%.2f,%s\n",
-                    claim.getClaimNumber(),
-                    claim.getPartnerCode(),
-                    claim.getPartnerType(),
-                    item.getOrderId(),
-                    item.getClaimType(),
+                    sanitizeCsv(claim.getClaimNumber()),
+                    sanitizeCsv(claim.getPartnerCode()),
+                    sanitizeCsv(claim.getPartnerType()),
+                    sanitizeCsv(item.getOrderId()),
+                    sanitizeCsv(item.getClaimType()),
                     item.getAmount(),
-                    item.getEvidenceNotes() != null ? item.getEvidenceNotes().replace(",", ";") : ""));
+                    sanitizeCsv(item.getEvidenceNotes())));
         }
         return csv.toString();
+    }
+
+    private String sanitizeCsv(String s) {
+        if (s == null) return "";
+        String sanitized = s.replace(",", ";");
+        if (sanitized.startsWith("=") || sanitized.startsWith("+") || sanitized.startsWith("-") || sanitized.startsWith("@")) {
+            return "'" + sanitized;
+        }
+        return sanitized;
     }
 
     private void logEvent(Claim claim, String fromStatus, String toStatus, String actor, String notes) {

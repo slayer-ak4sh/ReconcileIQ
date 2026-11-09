@@ -28,8 +28,17 @@ public class IngestionController {
         this.rejectedRowRepository = rejectedRowRepository;
     }
 
+    @GetMapping("/sources")
+    @PreAuthorize("hasAnyAuthority('FINANCE_EXECUTIVE', 'COFOUNDER')")
+    public ResponseEntity<List<SourceDTO>> listSources() {
+        List<SourceDTO> dtos = sourceRepository.findAll().stream()
+                .map(SourceDTO::fromEntity)
+                .toList();
+        return ResponseEntity.ok(dtos);
+    }
+
     @PostMapping(consumes = "multipart/form-data")
-    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasAnyAuthority('FINANCE_EXECUTIVE', 'COFOUNDER')")
     public ResponseEntity<?> uploadFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam("sourceId") Long sourceId,
@@ -51,7 +60,7 @@ public class IngestionController {
     }
 
     @PostMapping(value = "/{batchId}/ingest")
-    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasAnyAuthority('FINANCE_EXECUTIVE', 'COFOUNDER')")
     public ResponseEntity<?> ingestFullFile(
             @PathVariable Long batchId) {
         try {
@@ -66,8 +75,8 @@ public class IngestionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
-    public ResponseEntity<List<UploadBatch>> listUploads(
+    @PreAuthorize("hasAnyAuthority('FINANCE_EXECUTIVE', 'COFOUNDER')")
+    public ResponseEntity<List<UploadBatchDTO>> listUploads(
             @RequestParam(required = false) Long sourceId,
             @RequestParam(required = false) String fileType) {
         List<UploadBatch> batches;
@@ -81,22 +90,25 @@ public class IngestionController {
             batches = sourceRepository.findById(sourceId).map(Source::getUploadBatches).orElse(List.of());
         } else {
             batches = sourceRepository.findAll().stream()
-                    .flatMap(s -> s.getUploadBatches().stream())
+                    .flatMap(s -> s.getUploadBatches().stream()
+                            .peek(b -> b.getSource())) // ensure lazy load
                     .toList();
         }
-        return ResponseEntity.ok(batches);
+        List<UploadBatchDTO> dtos = batches.stream().map(UploadBatchDTO::fromEntity).toList();
+        return ResponseEntity.ok(dtos);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
-    public ResponseEntity<UploadBatch> getUpload(@PathVariable Long id) {
+    @PreAuthorize("hasAnyAuthority('FINANCE_EXECUTIVE', 'COFOUNDER')")
+    public ResponseEntity<UploadBatchDTO> getUpload(@PathVariable Long id) {
         return ingestionService.getBatchRepository().findById(id)
+                .map(UploadBatchDTO::fromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/{id}/rejected")
-    @PreAuthorize("hasAuthority('FINANCE_EXECUTIVE')")
+    @PreAuthorize("hasAnyAuthority('FINANCE_EXECUTIVE', 'COFOUNDER')")
     public ResponseEntity<List<RejectedRow>> getRejectedRows(@PathVariable Long id) {
         return ResponseEntity.ok(rejectedRowRepository.findByBatchId(id));
     }

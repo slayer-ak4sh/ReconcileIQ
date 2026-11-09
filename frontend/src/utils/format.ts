@@ -50,7 +50,12 @@ export function statusClass(status?: string): string {
     case 'SHORT_PAID': return 'cell-short'
     case 'UNPAID_PAST_DUE': return 'cell-overdue'
     case 'FREIGHT_OVERCHARGED': return 'cell-freight'
-    default: return ''
+    case 'DRAFT': return 'bg-ink-100 text-ink-600'
+    case 'SUBMITTED': return 'bg-blue-100 text-blue-700'
+    case 'APPROVED': return 'bg-emerald-100 text-emerald-700'
+    case 'REJECTED': return 'bg-red-100 text-red-700'
+    case 'RECOVERED': return 'bg-teal-100 text-teal-700'
+    default: return 'bg-ink-100 text-ink-600'
   }
 }
 
@@ -61,6 +66,11 @@ export function statusLabel(status?: string): string {
     case 'UNPAID_PAST_DUE': return 'Unpaid past due'
     case 'FREIGHT_OVERCHARGED': return 'Freight overcharged'
     case 'RETURN_NOT_RECEIVED': return 'Return not received'
+    case 'DRAFT': return 'Draft'
+    case 'SUBMITTED': return 'Submitted'
+    case 'APPROVED': return 'Approved'
+    case 'REJECTED': return 'Rejected'
+    case 'RECOVERED': return 'Recovered'
     default: return status || '—'
   }
 }

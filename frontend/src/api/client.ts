@@ -10,6 +10,7 @@ export const api: AxiosInstance = axios.create({
   timeout: 30000,
 })
 
+// Add Authorization header from localStorage
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('reconcileiq_token')
   if (token) {
@@ -19,7 +20,22 @@ api.interceptors.request.use((config) => {
 })
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Normalize response data for known endpoints that might return unexpected structures
+    if (response.config.url?.includes('/uploads')) {
+      if (!Array.isArray(response.data)) {
+        console.warn('Uploads endpoint did not return array, normalizing...')
+        response.data = response.data.data || []
+      }
+    }
+    if (response.config.url?.includes('/mappings')) {
+      if (response.data && !Array.isArray(response.data.suggestions)) {
+        console.warn('Mapping suggestions not in expected format')
+        response.data.suggestions = []
+      }
+    }
+    return response
+  },
   (error: AxiosError) => {
     const url = error.config?.url || ''
     const isLogin = url.includes('/auth/login') || url.includes('/auth/me')

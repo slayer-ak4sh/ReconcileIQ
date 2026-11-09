@@ -21,8 +21,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-import com.reconcileiq.auth.JwtAuthenticationEntryPoint;
-
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity

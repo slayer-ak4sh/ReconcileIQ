@@ -72,11 +72,31 @@ class MatchingAnswerKeyTest {
     @Autowired
     private MatchingService matchingService;
 
+    @Autowired
+    private UploadBatchRepository batchRepository;
+    @Autowired
+    private RejectedRowRepository rejectedRowRepository;
+    @Autowired
+    private OrderRepository orderRepository;
+    @Autowired
+    private SettlementRepository settlementRepository;
+    @Autowired
+    private CodRemittanceRepository codRepository;
+    @Autowired
+    private FreightInvoiceRepository freightRepository;
+
     private Long sourceId;
 
     @BeforeEach
     void setup() throws Exception {
+        // Delete in correct order to satisfy FK constraints
         reconRepository.deleteAll();
+        orderRepository.deleteAll();
+        settlementRepository.deleteAll();
+        codRepository.deleteAll();
+        freightRepository.deleteAll();
+        rejectedRowRepository.deleteAll();
+        batchRepository.deleteAll();
         userRepository.deleteAll();
         mappingRepository.deleteAll();
         sourceRepository.deleteAll();
@@ -114,8 +134,8 @@ class MatchingAnswerKeyTest {
         ingestFile("cod_remittances_demo.csv", "cod_remittance");
         ingestFile("freight_invoices_demo.csv", "freight_invoice");
 
-        // Run matching
-        matchingService.runMatching(LocalDate.of(2026, 11, 6));
+        // Run matching with a date far enough past all due dates
+        matchingService.runMatching(LocalDate.of(2026, 11, 30));
     }
 
     private void saveMapping(Long sourceId, String fileType, String json) {

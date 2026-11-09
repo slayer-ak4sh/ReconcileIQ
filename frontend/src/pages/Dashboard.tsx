@@ -76,7 +76,7 @@ export default function Dashboard() {
 
       <div className="p-6 lg:col-span-2 grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div>
-          <MoneyAtRiskTable rows={risk || []} />
+          <MoneyAtRiskTable rows={risk?.byPartner || []} />
         </div>
         <div>
           <StatusBreakdown data={summary?.byStatus || {}} />
