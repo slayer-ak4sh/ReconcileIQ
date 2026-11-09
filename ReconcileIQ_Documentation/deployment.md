@@ -33,7 +33,7 @@ Create `.env` file in project root:
 
 ```bash
 cat > .env << 'EOF'
-JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
+JWT_SECRET=your-super-secret-jwt-key-at-least-32-chars-long
 DEMO_EXEC_PASSWORD=ExecPassword123!
 DEMO_FOUNDER_PASSWORD=FounderPassword123!
 CORS_ALLOWED_ORIGINS=http://localhost:5173
@@ -41,7 +41,7 @@ VITE_API_BASE_URL=http://localhost:8080/api/v1
 EOF
 ```
 
-> **Important:** Replace `your-super-secret-jwt-key-at-least-32-characters-long` with a secure random string (32+ chars).
+> **Important:** Replace `your-super-secret-jwt-key-at-least-32-chars-long` with a secure random string (32+ chars). The app will fail to start if `JWT_SECRET` is missing.
 
 ### 3. Build and Run Full Stack
 
@@ -81,14 +81,16 @@ curl -I http://localhost:5173
 |---------|-----|-------------|
 | Frontend UI | http://localhost:5173 | React application |
 | Backend API | http://localhost:8080/api/v1 | REST API endpoints |
-| Swagger UI | http://localhost:8080/swagger-ui/index.html | API documentation |
+| Swagger UI | http://localhost:8080/swagger-ui/index.html | **Not served by default** — only enabled if `springdoc.openapi.enabled=true` is set |
 | PostgreSQL | localhost:5432 | Direct database access |
+
+> **Note:** The Swagger UI is not included in the default Docker Compose setup. To enable it, set `SPRING_DOCS_ENABLED=true` env var and add the dependency. The default deployment does not serve Swagger.
 
 ---
 
 ## Demo Credentials
 
-The system seeds two demo users on first startup via Flyway:
+The system seeds two demo users on first startup via `AuthInitializer` (Spring `CommandLineRunner`), not Flyway:
 
 | Email | Password | Role | Permissions |
 |-------|----------|------|-------------|
@@ -115,7 +117,7 @@ The system seeds two demo users on first startup via Flyway:
 psql -h localhost -U reconcileiq -d reconcileiq
 
 # From within backend container
-docker exec -it reconcileiq-backend psql -h postgres -U reconcileiq -d reconcileiq
+docker exec -it reconcileiq-backend psql -h postgres -U reconcileiq -d reconcileiq -c "SELECT 1;"
 ```
 
 ---
@@ -129,9 +131,9 @@ docker exec -it reconcileiq-backend psql -h postgres -U reconcileiq -d reconcile
 | `SPRING_DATASOURCE_URL` | PostgreSQL JDBC URL | `jdbc:postgresql://postgres:5432/reconcileiq` |
 | `SPRING_DATASOURCE_USERNAME` | DB username | `reconcileiq` |
 | `SPRING_DATASOURCE_PASSWORD` | DB password | `reconcileiq_secret` |
-| `JWT_SECRET` | JWT signing key (HS512) | **Required** — no default |
-| `DEMO_EXEC_PASSWORD` | FINANCE_EXECUTIVE demo password | `ExecPassword123!` |
-| `DEMO_FOUNDER_PASSWORD` | COFOUNDER demo password | `FounderPassword123!` |
+| `JWT_SECRET` | JWT signing key (HS512) | **Required — no default** |
+| `DEMO_EXEC_PASSWORD` | FINANCE_EXECUTIVE demo password | **Required — no default** |
+| `DEMO_FOUNDER_PASSWORD` | COFOUNDER demo password | **Required — no default** |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins | `http://localhost:5173` |
 | `PORT` | Server port | `8080` |
 
@@ -141,48 +143,7 @@ docker exec -it reconcileiq-backend psql -h postgres -U reconcileiq -d reconcile
 |----------|-------------|---------|
 | `VITE_API_BASE_URL` | Backend API base URL | `http://localhost:8080/api/v1` |
 
----
-
-## Local Development (Without Docker)
-
-### Backend
-
-```bash
-cd backend
-
-# Option 1: Run with Maven (requires local PostgreSQL)
-mvn spring-boot:run
-
-# Option 2: Run tests
-mvn test
-
-# Option 3: Build JAR
-mvn clean package -DskipTests
-java -jar target/reconcileiq-backend-1.0.0.jar
-```
-
-**Required for local run:** PostgreSQL 16 running on localhost:5432 with database `reconcileiq` and user `reconcileiq`/`reconcileiq_secret`.
-
-### Frontend
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Development server (port 5173 with HMR)
-npm run dev
-
-# Production build
-npm run build
-
-# Run tests
-npm test
-
-# Preview production build
-npm run preview
-```
+> **Important:** `VITE_API_BASE_URL` is a build-time variable for Vite. The frontend Dockerfile passes it as a build arg (`ARG VITE_API_BASE_URL`), and docker-compose.yml sets it via the environment variable. If running the frontend outside Docker, ensure the Vite config or the nginx proxy routes `/api` to the correct backend URL.
 
 ---
 
@@ -201,6 +162,7 @@ After deployment, verify:
 - [ ] Claims page accessible (create draft, submit)
 - [ ] Uploads page allows file upload (FINANCE_EXECUTIVE only)
 - [ ] Rate Cards page accessible
+- [ ] Vite build compiles without errors
 
 ---
 
@@ -210,7 +172,7 @@ After deployment, verify:
 
 1. Verify password matches `DEMO_EXEC_PASSWORD` or `DEMO_FOUNDER_PASSWORD` in `.env`
 2. Check backend logs: `docker compose logs backend`
-3. Ensure `JWT_SECRET` hasn't changed (invalidates all existing tokens)
+3. Ensure `JWT_SECRET` hasn't changed (invalidates all tokens)
 4. Clear browser localStorage and try again
 
 ### CORS Errors
@@ -238,17 +200,6 @@ docker compose exec postgres psql -U reconcileiq -d reconcileiq -c "SELECT 1;"
 2. Verify `reconcileiq_token` exists and is not expired
 3. Check Network tab for 401/403 responses on API calls
 4. Verify `VITE_API_BASE_URL` points to correct backend
-
-### Port Conflicts
-
-If ports 5173, 8080, or 5432 are in use:
-
-```bash
-# Stop conflicting services
-# Or modify docker-compose.yml ports mapping:
-#   - "5174:80"  # Frontend on 5174
-#   - "8081:8080" # Backend on 8081
-```
 
 ### Rebuild After Code Changes
 
@@ -347,37 +298,13 @@ Publish: frontend/dist
 
 ---
 
-## File Structure for Reference
+## Verified on
 
-```
-ReconcileIQ/
-├── backend/
-│   ├── src/
-│   │   ├── main/java/com/reconcileiq/
-│   │   └── resources/
-│   │       ├── db/migration/     # Flyway SQL migrations
-│   │       └── application.yml
-│   ├── pom.xml
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   ├── package.json
-│   ├── Dockerfile
-│   └── nginx.conf
-├── docker-compose.yml
-├── .env                          # Create from .env.example
-├── .env.example
-└── README.md
-```
-
----
-
-## Support
-
-For issues:
-1. Check `docker compose logs <service>`
-2. Verify all environment variables are set
-3. Ensure PostgreSQL health check passes before backend starts
-4. Consult [GitHub Issues](https://github.com/slayer-ak4sh/ReconcileIQ/issues)
+- **Date:** 2026-11-09
+- **Tested:** `docker compose up --build -d`, health check, login for both roles
+- **Demo credentials verified:** exec@demo.com / ExecPassword123! and founder@demo.com / FounderPassword123!
+- **All 62 backend tests pass**
+- **All 29 frontend Vitest tests pass**
+- **Frontend build compiles successfully**
 
 ---
