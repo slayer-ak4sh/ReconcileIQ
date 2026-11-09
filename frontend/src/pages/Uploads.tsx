@@ -2,9 +2,16 @@ import { useState, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getApiError } from '../api/client'
 import { Source, UploadBatch } from '../types'
-import { UploadCloud, Loader2, Play, ArrowRight, RefreshCcw } from 'lucide-react'
+import { UploadCloud, Loader2, Play, ArrowRight, RefreshCcw, Info, AlertCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+
+const FILE_TYPE_HINTS: Record<string, string> = {
+  ORDERS: 'CSV with: OrderID, ChannelCode, OrderDate, OrderValue, PaymentType, DeliveryStatus, CustomerName, CustomerPhone, CustomerAddress, expected_amount_override',
+  SETTLEMENT: 'CSV with: OrderID, ReferenceNo, SettleDate, GrossAmt, Commission, FixedFee, CollFee, TCS, TDS, NetAmt',
+  COD_REMITTANCE: 'CSV with: OrderID, CourierCode, UTRNo, RemitDate, CODCollected, FeeDeducted, NetRemitted',
+  FREIGHT_INVOICE: 'CSV with: OrderID, CourierCode, InvoiceNo, InvoiceDate, BilledWeight, FreightCharge, CODFee, ReturnFee, TotalFreight',
+}
 
 export default function Uploads() {
   const queryClient = useQueryClient()
@@ -37,7 +44,6 @@ export default function Uploads() {
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['uploads'] })
       setFile(null)
-      // Auto-ingest if the backend supports it or if required by the flow
       if (response.data.batchId) {
         api.post(`/uploads/${response.data.batchId}/ingest`).catch(err => console.error('Auto-ingest failed', err))
       }
@@ -70,20 +76,20 @@ export default function Uploads() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null
     setFile(selectedFile)
-    if (selectedFile && !sourceId) {
-      alert("Please select a source first")
-    }
   }
+
+  const canUpload = !!file && !!sourceId && !!fileType && !uploadMutation.isPending
+  const showSelectFirstHint = !sourceId || !fileType
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-ink-900">File Uploads</h1>
         {hasRole('FINANCE_EXECUTIVE') && (
           <button
             onClick={() => runMatchingMutation.mutate()}
             disabled={runMatchingMutation.isPending}
-            className="flex items-center gap-2 bg-accent-500 text-white px-4 py-2 rounded-md hover:bg-accent-600 disabled:opacity-50"
+            className="flex items-center gap-2 bg-accent-600 text-white px-4 py-2 rounded-md hover:bg-accent-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {runMatchingMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Play size={18} />}
             Run Matching
@@ -103,52 +109,85 @@ export default function Uploads() {
           </div>
         ) : null}
 
-        <form onSubmit={handleUpload} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <form onSubmit={handleUpload} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-ink-700 mb-1">Source <span className="text-red-500">*</span></label>
+              <select
+                className="w-full rounded-md border border-ink-300 p-2 focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none"
+                value={sourceId}
+                onChange={(e) => setSourceId(e.target.value)}
+                required
+              >
+                <option value="">Select Source</option>
+                {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ink-700 mb-1">File Type <span className="text-red-500">*</span></label>
+              <select
+                className="w-full rounded-md border border-ink-300 p-2 focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none"
+                value={fileType}
+                onChange={(e) => setFileType(e.target.value)}
+                required
+              >
+                <option value="">Select Type</option>
+                <option value="ORDERS">Orders</option>
+                <option value="SETTLEMENT">Settlement</option>
+                <option value="COD_REMITTANCE">COD Remittance</option>
+                <option value="FREIGHT_INVOICE">Freight Invoice</option>
+              </select>
+            </div>
+          </div>
+
+          {showSelectFirstHint && (
+            <div className="p-3 bg-ink-50 text-ink-600 rounded-md flex items-center gap-2">
+              <Info size={18} />
+              <span className="text-sm">Select a source and file type first</span>
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-ink-700 mb-1">Source</label>
-            <select
-              className="w-full rounded-md border border-ink-300 p-2"
-              value={sourceId}
-              onChange={(e) => setSourceId(e.target.value)}
-              required
+            <label className="block text-sm font-medium text-ink-700 mb-1">File <span className="text-red-500">*</span></label>
+            {fileType && (
+              <p className="text-xs text-ink-500 mb-2 font-mono">{FILE_TYPE_HINTS[fileType]}</p>
+            )}
+            <div
+              onClick={() => { if (!showSelectFirstHint) fileInputRef.current?.click() }}
+              className={`border-2 border-dashed rounded-md p-4 text-center cursor-pointer transition-colors flex items-center justify-center min-h-[120px] ${
+                showSelectFirstHint ? 'border-ink-200 bg-ink-50 cursor-not-allowed' :
+                file ? 'border-green-400 bg-green-50' : 'border-ink-200 hover:border-accent-400 hover:bg-ink-50'
+              }`}
             >
-              <option value="">Select Source</option>
-              {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleFileChange}
+                disabled={showSelectFirstHint}
+              />
+              <div className="flex flex-col items-center gap-2">
+                <UploadCloud size={32} className={file ? 'text-green-500' : 'text-ink-400'} />
+                <span className="text-sm font-medium text-ink-700">
+                  {file ? file.name : (showSelectFirstHint ? 'Select source and file type first' : 'Click to browse or drag & drop')}
+                </span>
+                {file && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setFile(null) }}
+                    className="text-xs text-ink-500 hover:text-ink-700 underline"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-ink-700 mb-1">File Type</label>
-            <select
-              className="w-full rounded-md border border-ink-300 p-2"
-              value={fileType}
-              onChange={(e) => setFileType(e.target.value)}
-              required
-            >
-              <option value="">Select Type</option>
-              <option value="ORDERS">Orders</option>
-              <option value="SETTLEMENT">Settlement</option>
-              <option value="COD_REMITTANCE">COD Remittance</option>
-              <option value="FREIGHT_INVOICE">Freight Invoice</option>
-            </select>
-          </div>
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-ink-200 rounded-md p-2 text-center cursor-pointer hover:bg-ink-50 transition-colors h-[42px] flex items-center justify-center overflow-hidden"
-          >
-            <span className="text-xs text-ink-500 truncate">
-              {file ? file.name : "Click to browse or drop file"}
-            </span>
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </div>
+
           <button
             type="submit"
-            disabled={uploadMutation.isPending}
-            className="bg-accent-500 text-white px-4 py-2 rounded-md hover:bg-accent-600 disabled:opacity-50 flex items-center justify-center gap-2"
+            disabled={!canUpload}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-accent-600 text-white px-6 py-2.5 rounded-md hover:bg-accent-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {uploadMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <UploadCloud size={18} />}
             {file ? "Upload" : "Select File"}
@@ -156,13 +195,14 @@ export default function Uploads() {
         </form>
 
         {uploadMutation.isError && (
-          <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">
-            {getApiError(uploadMutation.error).message}
+          <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm flex items-center gap-2">
+            <AlertCircle size={18} />
+            <span>{getApiError(uploadMutation.error).message}</span>
           </div>
         )}
 
         {uploadMutation.isSuccess && (
-          <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-md flex items-center justify-between">
+          <div className="p-4 bg-green-50 text-green-700 rounded-md flex items-center justify-between">
             <span className="text-sm font-medium">File uploaded and queued for ingestion successfully!</span>
             <Link to="/mapping" className="flex items-center gap-1 text-sm font-bold hover:underline">
               Go to Mapping <ArrowRight size={16} />
@@ -171,43 +211,52 @@ export default function Uploads() {
         )}
       </div>
 
-      <div className="card">
-        <div className="p-6 border-b border-ink-100 font-semibold text-ink-900">Recent Uploads</div>
+      <div className="card overflow-hidden">
+        <div className="p-4 border-b border-ink-100 font-semibold text-ink-900">Recent Uploads</div>
         {loadingUploads ? (
           <div className="p-8 text-center text-ink-500">Loading...</div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-ink-50 text-ink-600 text-xs uppercase">
-              <tr>
-                <th className="px-6 py-3 text-left">File Name</th>
-                <th className="px-6 py-3 text-left">Type</th>
-                <th className="px-6 py-3 text-center">Status</th>
-                <th className="px-6 py-3 text-right">Rows (V/E)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.isArray(uploads) && uploads.map(u => (
-                <tr key={u.id} className="border-t border-ink-100 hover:bg-ink-50">
-                  <td className="px-6 py-4 text-sm font-medium text-ink-900">{u.fileName}</td>
-                  <td className="px-6 py-4 text-sm text-ink-500">{u.fileType}</td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      u.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                      u.status === 'FAILED' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-                    }`}>
-                      {u.status}</span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-right font-mono text-ink-600">
-                    {u.validRowCount} / {u.errorCount}</td>
-                </tr>
-              ))}
-              {uploads.length === 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-ink-50 text-ink-600 text-xs uppercase">
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-ink-400">No uploads found</td>
+                  <th className="px-4 py-3 text-left">File Name</th>
+                  <th className="px-4 py-3 text-left">Type</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                  <th className="px-4 py-3 text-right tabular">Rows (V/E)</th>
+                  <th className="px-4 py-3 text-left">Uploaded Date</th>
+                  <th className="px-4 py-3 text-left">Uploaded By</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {Array.isArray(uploads) && uploads.length > 0 ? (
+                  uploads.map(u => (
+                    <tr key={u.id} className="border-t border-ink-100 hover:bg-ink-50">
+                      <td className="px-4 py-3 text-sm font-medium text-ink-900 truncate max-w-xs">{u.fileName}</td>
+                      <td className="px-4 py-3 text-sm text-ink-500">{u.fileType}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          u.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                          u.status === 'FAILED' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {u.status}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular text-sm font-mono text-ink-600">
+                        {u.validRowCount} / {u.errorCount}</td>
+                      <td className="px-4 py-3 text-sm text-ink-600">
+                        {u.createdAt ? new Date(u.createdAt).toLocaleString() : '—'}</td>
+                      <td className="px-4 py-3 text-sm text-ink-600">
+                        {u.uploadedBy || '—'}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-ink-400">No uploads found</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
