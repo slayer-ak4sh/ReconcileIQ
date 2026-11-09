@@ -381,5 +381,3 @@ For issues:
 4. Consult [GitHub Issues](https://github.com/slayer-ak4sh/ReconcileIQ/issues)
 
 ---
-
-*🤖 Generated with [Claude Code](https://claude.com/claude-code)*
